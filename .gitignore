@@ -38,7 +38,17 @@ ENV/
 # Logs
 logs/
 *.log
+worker_stderr.log
+worker_stdout.log
 
-# Project specific
+# Project specific generated assets (exclude inputs/templates if needed, ignore outputs)
+assets/audio/
+assets/subtitles/
+assets/renders/
+assets/timelines/
 assets/temp/
 assets/output/
+assets/memory/
+
+# Binaries/External Tools
+ffmpeg/

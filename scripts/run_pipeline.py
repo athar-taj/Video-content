@@ -26,7 +26,8 @@ async def main():
     orchestrator = LangGraphOrchestrator(registry)
     
     # In production, this data comes from the discovery module (Reddit)
-    job_id = "job_auto_production_101"
+    import uuid
+    job_id = f"job_auto_{uuid.uuid4().hex[:8]}"
     topic_id = "topic_reddit_gaming_001"
     
     logger.info(f"Triggering Autonomous Pipeline for Topic: {topic_id}")

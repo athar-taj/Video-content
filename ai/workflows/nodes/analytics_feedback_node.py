@@ -1,43 +1,65 @@
 import logging
-import random
 from typing import Dict, Any
-from ai.workflows.pipeline.analytics_router import AnalyticsRouter
+from sqlalchemy import select
+
+from ai.workflows.queue.job_dispatcher import job_dispatcher
+from ai.workflows.queue.job_tracker import job_tracker
+from ai.workflows.queue.models import JobType, JobPriority
+from db.repositories.manager import db_manager
+from db.models.queue import PipelineJobModel
 
 logger = logging.getLogger(__name__)
 
 async def analytics_feedback_node(state: Dict[str, Any]) -> Dict[str, Any]:
-    logger.info("Executing Analytics Feedback Node...")
+    logger.info("Executing Analytics Feedback Node (Queue-based)...")
     
-    job_id = state.get("job_id")
-    script_data = state.get("generated_script", {})
-    hook = script_data.get("hook", "")
-    provider = state.get("selected_llm_provider", "Unknown")
+    workflow_id = state.get("job_id")
     
-    # Simulate high performance if it was a premium video
-    workflow_type = state.get("workflow_type", "cheap")
-    if workflow_type == "premium":
-        retention = random.uniform(0.70, 0.90)
-        ctr = random.uniform(0.08, 0.15)
-    elif workflow_type == "balanced":
-        retention = random.uniform(0.55, 0.75)
-        ctr = random.uniform(0.05, 0.10)
-    else:
-        retention = random.uniform(0.35, 0.60)
-        ctr = random.uniform(0.02, 0.07)
+    # 1. Check if a queue job already exists for this workflow stage
+    db_job_id = None
+    db_status = None
+    
+    async with db_manager.session_factory() as session:
+        stmt = select(PipelineJobModel).where(
+            PipelineJobModel.workflow_id == workflow_id,
+            PipelineJobModel.current_stage == JobType.ANALYTICS.value
+        ).order_by(PipelineJobModel.created_at.desc()).limit(1)
+        result = await session.execute(stmt)
+        db_job = result.scalar_one_or_none()
+        if db_job:
+            db_job_id = db_job.id
+            db_status = db_job.status
+
+    # 2. If job exists and is complete, return success immediately
+    if db_status == "completed" and db_job_id:
+        logger.info(f"Existing analytics job {db_job_id} found in completed state. Resuming.")
+        return {}
+
+    # 3. If no job exists or previous failed, dispatch a new one
+    if not db_job_id or db_status in ("failed", "dead"):
+        logger.info(f"Dispatching analytics job to queue for workflow {workflow_id}...")
         
-    metrics = {
-        "timestamp": "2026-05-19T10:00:00Z",
-        "retention_rate": retention,
-        "watch_time_sec": retention * 60, # Assuming 60s video
-        "ctr": ctr,
-        "narration_provider": state.get("selected_tts_provider", "Unknown"),
-        "subtitle_style": "karaoke",
-        "niche": state.get("execution_metadata", {}).get("subreddit", "general"),
-        "hook": hook
-    }
-    
-    router = AnalyticsRouter()
-    router.route_feedback(job_id, metrics)
-    
-    logger.info(f"Ingested simulated feedback for {job_id}: retention={retention:.2%}, CTR={ctr:.2%}")
+        script_data = state.get("generated_script", {})
+        payload = {
+            "video_id": f"vid_{workflow_id}",
+            "platform": "youtube_shorts",
+            "generated_script": script_data,
+            "selected_llm_provider": state.get("selected_llm_provider", "Unknown"),
+            "selected_tts_provider": state.get("selected_tts_provider", "Unknown"),
+            "workflow_type": state.get("workflow_type", "cheap"),
+            "execution_metadata": state.get("execution_metadata", {})
+        }
+        
+        # Enqueue Analytics job
+        db_job_id = await job_dispatcher.dispatch(
+            job_type=JobType.ANALYTICS,
+            workflow_id=workflow_id,
+            payload=payload,
+            priority=JobPriority.LOW
+        )
+
+    # 4. Await job completion (polls database/Redis)
+    logger.info(f"Awaiting completion of analytics job {db_job_id}...")
+    await job_tracker.await_job_completion(db_job_id)
     return {}
+

@@ -1,7 +1,6 @@
 import asyncio
 import logging
 from typing import List, Optional, Dict, Any
-from faster_whisper import WhisperModel
 from ai.subtitles.timestamps.models import WordTimestamp, SubtitleSegment
 from ai.subtitles.timestamps.audio_segmenter import AudioSegmenter
 from ai.subtitles.timestamps.word_aligner import WordAligner
@@ -28,7 +27,11 @@ class TimestampGenerator:
         self.validator = TimestampValidator()
 
     def _load_model(self):
+        from shared.config.settings import settings
+        if settings.ENV == "development":
+            return
         if self.model is None:
+            from faster_whisper import WhisperModel
             logger.info(f"Loading Whisper model: {self.model_size} on {self.device}")
             self.model = WhisperModel(self.model_size, device=self.device, compute_type=self.compute_type)
 
@@ -36,7 +39,27 @@ class TimestampGenerator:
         """
         Transcribes audio and generates word-level timestamps.
         """
+        from shared.config.settings import settings
         self._load_model()
+        
+        if settings.ENV == "development":
+            logger.info("Development mode detected: Generating mock word timestamps.")
+            text = original_script or "This is a mock transcription of the narration audio for development."
+            words = [w.strip(".,!?\"'") for w in text.split() if w.strip()]
+            refined_words = []
+            current_time = 0.0
+            for pos, w in enumerate(words):
+                start = current_time
+                end = current_time + 0.35
+                refined_words.append(WordTimestamp(
+                    word=w,
+                    start_time=start,
+                    end_time=end,
+                    confidence=0.99,
+                    position=pos
+                ))
+                current_time = end + 0.05
+            return refined_words
         
         # Preprocess audio
         normalized_audio = self.segmenter.preprocess_audio(audio_path)

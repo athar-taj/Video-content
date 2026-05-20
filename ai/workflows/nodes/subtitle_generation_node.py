@@ -1,80 +1,78 @@
 import logging
-import os
 from typing import Dict, Any
-from ai.subtitles.timestamps.timestamp_generator import TimestampGenerator
-from ai.subtitles.storage.service import SubtitleStorageService
-from ai.subtitles.formatting.subtitle_exporter import SubtitleExporter
+from sqlalchemy import select
+
+from ai.workflows.queue.job_dispatcher import job_dispatcher
+from ai.workflows.queue.job_tracker import job_tracker
+from ai.workflows.queue.models import JobType, JobPriority
 from db.repositories.manager import db_manager
-from shared.redis.client import redis_manager
+from db.models.queue import PipelineJobModel
 
 logger = logging.getLogger(__name__)
 
 async def subtitle_generation_node(state: Dict[str, Any]) -> Dict[str, Any]:
-    logger.info("Executing Subtitle Generation Node...")
+    logger.info("Executing Subtitle Generation Node (Queue-based)...")
     
-    audio_path = state.get("narration_path")
-    script_data = state.get("generated_script", {})
-    script_text = script_data.get("full_script", "")
+    workflow_id = state.get("job_id")
+    subtitle_path = state.get("subtitle_path")
     
-    if not audio_path or not os.path.exists(audio_path):
-        logger.error(f"Narration file not found: {audio_path}")
-        return {"errors": state.get("errors", []) + ["Narration audio missing for subtitle generation"]}
+    # 1. If subtitles already exist, return them immediately (idempotent resume)
+    if subtitle_path:
+        logger.info("Subtitles already present in state, skipping queue dispatch.")
+        return {}
 
-    output_dir = "assets/subtitles/processed"
-    os.makedirs(output_dir, exist_ok=True)
+    # 2. Check if a queue job already exists for this workflow stage
+    db_job_id = None
+    db_status = None
     
-    try:
-        # Initialize components
-        generator = TimestampGenerator(model_size="base", device="cpu")
-        exporter = SubtitleExporter()
+    async with db_manager.session_factory() as session:
+        stmt = select(PipelineJobModel).where(
+            PipelineJobModel.workflow_id == workflow_id,
+            PipelineJobModel.current_stage == JobType.SUBTITLE.value
+        ).order_by(PipelineJobModel.created_at.desc()).limit(1)
+        result = await session.execute(stmt)
+        db_job = result.scalar_one_or_none()
+        if db_job:
+            db_job_id = db_job.id
+            db_status = db_job.status
+
+    # 3. If job exists and is complete, fetch and return result
+    if db_status == "completed" and db_job_id:
+        logger.info(f"Existing subtitle job {db_job_id} found in completed state. Resuming result.")
+        result = await job_tracker.get_job_result(db_job_id)
+        if result:
+            return result
+
+    # 4. If no job exists or the previous job failed, dispatch a new one
+    if not db_job_id or db_status in ("failed", "dead"):
+        logger.info(f"Dispatching subtitle job to queue for workflow {workflow_id}...")
         
-        # Check cache
-        await redis_manager.connect()
-        cache_key = f"subtitles:{os.path.basename(audio_path)}"
-        cached_result = await redis_manager.get_cache(cache_key)
+        audio_path = state.get("narration_path")
+        script_data = state.get("generated_script", {})
         
-        if cached_result:
-            logger.info("Found cached subtitle results")
-            import json
-            results = json.loads(cached_result)
-        else:
-            logger.info("Running Whisper transcription pipeline...")
-            results = await generator.process_pipeline(audio_path, script_text)
-            # Cache results
-            await redis_manager.set_cache(cache_key, json.dumps(results), expire=86400)
+        if not audio_path:
+            logger.error("No narration audio path in state for subtitles.")
+            return {
+                "errors": state.get("errors", []) + ["Narration audio missing for subtitle generation"]
+            }
             
-        # Store in DB
-        async with db_manager.session_factory() as session:
-            storage = SubtitleStorageService(session)
-            gen_id = await storage.create_generation()
-            await storage.store_timestamps(gen_id, results["words"], results["segments"])
-            logger.info(f"Stored subtitle metadata with ID: {gen_id}")
-            
-        # Export formats
-        base_name = os.path.splitext(os.path.basename(audio_path))[0]
-        ass_path = os.path.join(output_dir, f"{base_name}.ass")
-        json_path = os.path.join(output_dir, f"{base_name}.json")
-        srt_path = os.path.join(output_dir, f"{base_name}.srt")
-        
-        exporter.to_json(results["segments"], json_path)
-        exporter.to_srt(results["segments"], srt_path)
-        exporter.to_ass_karaoke(results["segments"], ass_path)
-        
-        logger.info(f"Subtitles generated successfully: {ass_path}")
-        
-        state_metadata = state.get("execution_metadata", {})
-        state_metadata["subtitle_json_path"] = json_path
-        state_metadata["subtitle_srt_path"] = srt_path
-        
-        return {
-            "subtitle_path": ass_path,
-            "execution_metadata": state_metadata
+        payload = {
+            "narration_path": audio_path,
+            "generated_script": script_data,
+            "script_id": state.get("execution_metadata", {}).get("script_id", 1),
+            "execution_metadata": state.get("execution_metadata", {})
         }
         
-    except Exception as e:
-        logger.exception(f"Subtitle generation node failed: {e}")
-        return {
-            "errors": state.get("errors", []) + [f"Subtitle generation failed: {str(e)}"]
-        }
-    finally:
-        await redis_manager.disconnect()
+        # Enqueue Subtitle job
+        db_job_id = await job_dispatcher.dispatch(
+            job_type=JobType.SUBTITLE,
+            workflow_id=workflow_id,
+            payload=payload,
+            priority=JobPriority.NORMAL
+        )
+
+    # 5. Await job completion (polls database/Redis)
+    logger.info(f"Awaiting completion of subtitle job {db_job_id}...")
+    result = await job_tracker.await_job_completion(db_job_id)
+    return result
+

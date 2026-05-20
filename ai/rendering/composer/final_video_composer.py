@@ -20,6 +20,15 @@ class FinalVideoComposer:
 
     async def compose_video(self, job: RenderJob, overlay_paths: List[str] = None) -> str:
         """Executes the complete rendering pipeline."""
+        from shared.config.settings import settings
+        if settings.ENV == "development":
+            logger.info(f"Development mode detected: Generating mock render output at {job.output_path}")
+            import os
+            os.makedirs(os.path.dirname(job.output_path), exist_ok=True)
+            with open(job.output_path, "wb") as f:
+                f.write(b"MOCK_MP4_VIDEO_DATA")
+            return job.output_path
+            
         logger.info(f"Starting Final Video Composition for job: {job.job_id}")
         
         # 1. Validation

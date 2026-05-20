@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Annotated
 from typing_extensions import TypedDict
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
@@ -21,6 +21,13 @@ from ai.workflows.nodes.analytics_feedback_node import analytics_feedback_node
 
 logger = logging.getLogger(__name__)
 
+def merge_dicts(dict1: Dict[str, Any], dict2: Dict[str, Any]) -> Dict[str, Any]:
+    if dict1 is None:
+        dict1 = {}
+    if dict2 is None:
+        dict2 = {}
+    return {**dict1, **dict2}
+
 # Define state representation for LangGraph
 class GraphState(TypedDict):
     job_id: str
@@ -38,7 +45,7 @@ class GraphState(TypedDict):
     render_output_path: Optional[str]
     retry_count: int
     workflow_status: str
-    execution_metadata: Dict[str, Any]
+    execution_metadata: Annotated[Dict[str, Any], merge_dicts]
     errors: List[str]
     created_at: Any
     script_valid: bool

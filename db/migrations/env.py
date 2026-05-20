@@ -6,7 +6,7 @@ from alembic import context
 
 # 1. Import your models and settings
 from shared.config.settings import settings
-from db.models.database import Base
+from db.models import Base
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

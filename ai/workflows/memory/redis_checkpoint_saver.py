@@ -9,13 +9,25 @@ from langgraph.checkpoint.base import (
     CheckpointTuple,
     ChannelVersions
 )
-from shared.redis.client import redis_manager
+import redis.asyncio as redis
+from shared.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
 class RedisCheckpointSaver(BaseCheckpointSaver):
     """A custom LangGraph checkpoint saver backed by Redis."""
     
+    def __init__(self):
+        super().__init__()
+        self.client = None
+
+    async def _connect(self):
+        if self.client is None:
+            self.client = redis.from_url(
+                settings.REDIS_URL,
+                decode_responses=False
+            )
+
     def put(self, config: RunnableConfig, checkpoint: Checkpoint, metadata: CheckpointMetadata, new_versions: ChannelVersions) -> RunnableConfig:
         logger.warning("Synchronous put called on RedisCheckpointSaver. Prefer async version.")
         return config
@@ -32,19 +44,18 @@ class RedisCheckpointSaver(BaseCheckpointSaver):
         checkpoint_ns = config["configurable"].get("checkpoint_ns", "")
         checkpoint_id = config["configurable"].get("checkpoint_id")
         
-        # Connect to Redis
-        await redis_manager.connect()
+        await self._connect()
         
         if checkpoint_id:
             key = f"checkpoint:{thread_id}:{checkpoint_ns}:{checkpoint_id}"
         else:
             # Retrieve latest checkpoint ID
-            latest_id = await redis_manager.client.get(f"checkpoint:latest:{thread_id}:{checkpoint_ns}")
+            latest_id = await self.client.get(f"checkpoint:latest:{thread_id}:{checkpoint_ns}")
             if not latest_id:
                 return None
             key = f"checkpoint:{thread_id}:{checkpoint_ns}:{latest_id.decode()}"
             
-        data = await redis_manager.client.get(key)
+        data = await self.client.get(key)
         if not data:
             return None
             
@@ -71,7 +82,7 @@ class RedisCheckpointSaver(BaseCheckpointSaver):
         checkpoint_ns = config["configurable"].get("checkpoint_ns", "")
         checkpoint_id = checkpoint["id"]
         
-        await redis_manager.connect()
+        await self._connect()
         
         key = f"checkpoint:{thread_id}:{checkpoint_ns}:{checkpoint_id}"
         
@@ -90,10 +101,10 @@ class RedisCheckpointSaver(BaseCheckpointSaver):
         
         # Save in Redis with 1 day expiration to save memory
         serialized_data = pickle.dumps(checkpoint_dict)
-        await redis_manager.client.setex(key, 86400, serialized_data)
+        await self.client.setex(key, 86400, serialized_data)
         
         # Save latest pointer
-        await redis_manager.client.setex(f"checkpoint:latest:{thread_id}:{checkpoint_ns}", 86400, checkpoint_id)
+        await self.client.setex(f"checkpoint:latest:{thread_id}:{checkpoint_ns}", 86400, checkpoint_id)
         
         logger.info(f"Saved LangGraph checkpoint in Redis: {key}")
         
@@ -116,9 +127,9 @@ class RedisCheckpointSaver(BaseCheckpointSaver):
         checkpoint_ns = config["configurable"].get("checkpoint_ns", "")
         checkpoint_id = config["configurable"]["checkpoint_id"]
         
-        await redis_manager.connect()
+        await self._connect()
         key = f"writes:{thread_id}:{checkpoint_ns}:{checkpoint_id}:{task_id}"
         
         # Save write operations
         serialized_writes = pickle.dumps(writes)
-        await redis_manager.client.setex(key, 86400, serialized_writes)
+        await self.client.setex(key, 86400, serialized_writes)

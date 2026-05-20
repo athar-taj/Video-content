@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from typing import Dict, Any
 from db.repositories.manager import db_manager
 from sqlalchemy import select
@@ -46,13 +47,44 @@ async def topic_fetch_node(state: Dict[str, Any]) -> Dict[str, Any]:
             topic = res.scalar_one_or_none()
             
         if not topic:
-            logger.warning("No topics found in the database. Falling back to default mock topic.")
+            logger.warning("No topics found in the database. Checking for existing fallback mock topic.")
+            stmt = select(RedditTopic).where(RedditTopic.reddit_id == "mock_topic_id")
+            res = await session.execute(stmt)
+            existing_mock = res.scalar_one_or_none()
+            if existing_mock:
+                logger.info(f"Found existing fallback mock topic in database with ID: {existing_mock.id}")
+                return {
+                    "topic_id": str(existing_mock.id),
+                    "execution_metadata": {
+                        "title": existing_mock.title,
+                        "body": existing_mock.body or "",
+                        "subreddit": existing_mock.subreddit
+                    }
+                }
+
+            logger.warning("Mock topic not found in database. Creating default mock topic in database.")
+            mock_topic = RedditTopic(
+                reddit_id="mock_topic_id",
+                subreddit="gaming",
+                title="Why Minecraft is still the best game",
+                body="It allows for absolute creative freedom and endless updates.",
+                author="mock_author",
+                score=100,
+                comments_count=10,
+                viral_score=95.0,
+                is_nsfw=False,
+                permalink="/r/gaming/comments/mock",
+                created_utc=datetime.utcnow()
+            )
+            session.add(mock_topic)
+            await session.commit()
+            logger.info(f"Created default mock topic in database with ID: {mock_topic.id}")
             return {
-                "topic_id": "mock_topic_id",
+                "topic_id": str(mock_topic.id),
                 "execution_metadata": {
-                    "title": "Why Minecraft is still the best game",
-                    "body": "It allows for absolute creative freedom and endless updates.",
-                    "subreddit": "gaming"
+                    "title": mock_topic.title,
+                    "body": mock_topic.body or "",
+                    "subreddit": mock_topic.subreddit
                 }
             }
             

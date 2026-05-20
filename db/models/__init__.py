@@ -16,6 +16,10 @@ from .video import (
     VideoAssetModel, VideoClipModel, AssetUsageLog, 
     SceneTimelineModel, SceneSegmentModel
 )
+from .queue import (
+    PipelineJobModel, JobFailureModel, WorkerStateModel, DeadLetterJobModel
+)
+from .database import Topic, Script, WorkflowJob
 
 __all__ = [
     "Base", "RedditTopic", "RedditComment", "ProcessingLog", 
@@ -24,5 +28,7 @@ __all__ = [
     "WordTimestampModel", "SubtitleSegmentModel", "FormattedSubtitleModel",
     "SubtitleExportModel", "CaptionStyleModel", "CaptionAnimationProfile",
     "CaptionRenderProfile", "VideoAssetModel", "VideoClipModel", "AssetUsageLog",
-    "SceneTimelineModel", "SceneSegmentModel"
+    "SceneTimelineModel", "SceneSegmentModel",
+    "PipelineJobModel", "JobFailureModel", "WorkerStateModel", "DeadLetterJobModel",
+    "Topic", "Script", "WorkflowJob"
 ]

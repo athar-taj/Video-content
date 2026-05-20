@@ -8,12 +8,20 @@ class ProviderRouter:
     """Selects and routes requests to healthy LLM and TTS providers based on workflow level."""
     
     def __init__(self):
+        from shared.config.settings import settings
         # LLM Provider Preference Chains
-        self.llm_chains = {
-            "cheap": ["Ollama", "Mistral", "OpenAI"],
-            "balanced": ["Mistral", "OpenAI", "Claude"],
-            "premium": ["Claude", "OpenAI", "Mistral"]
-        }
+        if settings.ENV == "development":
+            self.llm_chains = {
+                "cheap": ["Mock", "Ollama", "Mistral", "OpenAI"],
+                "balanced": ["Mock", "Mistral", "OpenAI", "Claude"],
+                "premium": ["Mock", "Claude", "OpenAI", "Mistral"]
+            }
+        else:
+            self.llm_chains = {
+                "cheap": ["Ollama", "Mistral", "OpenAI"],
+                "balanced": ["Mistral", "OpenAI", "Claude"],
+                "premium": ["Claude", "OpenAI", "Mistral"]
+            }
         
         # TTS Provider Preference Chains
         self.tts_chains = {

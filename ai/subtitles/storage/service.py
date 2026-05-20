@@ -32,25 +32,58 @@ class SubtitleStorageService:
         
         # Store words
         for w in words:
+            if isinstance(w, dict):
+                w_word = w.get("word")
+                w_start = w.get("start_time")
+                w_end = w.get("end_time")
+                w_conf = w.get("confidence")
+                w_pos = w.get("position")
+            else:
+                w_word = w.word
+                w_start = w.start_time
+                w_end = w.end_time
+                w_conf = w.confidence
+                w_pos = w.position
+
             word_model = WordTimestampModel(
                 subtitle_generation_id=gen_id,
-                word=w.word,
-                start_time=w.start_time,
-                end_time=w.end_time,
-                confidence=w.confidence,
-                position=w.position
+                word=w_word,
+                start_time=w_start,
+                end_time=w_end,
+                confidence=w_conf,
+                position=w_pos
             )
             self.session.add(word_model)
             
         # Store segments
         for s in segments:
+            if isinstance(s, dict):
+                s_text = s.get("text")
+                s_start = s.get("start_time")
+                s_end = s.get("end_time")
+                s_dur = s.get("duration")
+                s_words = s.get("words", [])
+            else:
+                s_text = s.text
+                s_start = s.start_time
+                s_end = s.end_time
+                s_dur = s.duration
+                s_words = s.words
+
+            word_data_dicts = []
+            for item in s_words:
+                if isinstance(item, dict):
+                    word_data_dicts.append(item)
+                else:
+                    word_data_dicts.append(item.model_dump())
+
             seg_model = SubtitleSegmentModel(
                 subtitle_generation_id=gen_id,
-                text=s.text,
-                start_time=s.start_time,
-                end_time=s.end_time,
-                duration=s.duration,
-                word_data=[w.model_dump() for w in s.words]
+                text=s_text,
+                start_time=s_start,
+                end_time=s_end,
+                duration=s_dur,
+                word_data=word_data_dicts
             )
             self.session.add(seg_model)
             

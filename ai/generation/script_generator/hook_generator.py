@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from ai.generation.generation_service import GenerationService
 from shared.logging.logger import log
 

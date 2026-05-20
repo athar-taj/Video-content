@@ -23,6 +23,9 @@ class ProviderFactory:
                 cls._instances[name] = OllamaProvider()
             elif name == "huggingface":
                 cls._instances[name] = HuggingFaceProvider()
+            elif name == "mock":
+                from ai.providers.mock_provider import MockLLMProvider
+                cls._instances[name] = MockLLMProvider()
             else:
                 raise ValueError(f"Unknown provider: {name}")
         return cls._instances[name]

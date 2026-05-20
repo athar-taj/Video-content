@@ -1,62 +1,81 @@
 import logging
-import os
 from typing import Dict, Any
-from ai.rendering.composer import FinalVideoComposer, RenderJob, ExportManager
+from sqlalchemy import select
+
+from ai.workflows.queue.job_dispatcher import job_dispatcher
+from ai.workflows.queue.job_tracker import job_tracker
+from ai.workflows.queue.models import JobType, JobPriority
+from db.repositories.manager import db_manager
+from db.models.queue import PipelineJobModel
 
 logger = logging.getLogger(__name__)
 
 async def render_node(state: Dict[str, Any]) -> Dict[str, Any]:
-    logger.info("Executing Render Node...")
+    logger.info("Executing Render Node (Queue-based)...")
     
-    job_id = state.get("job_id")
-    script_id = state.get("execution_metadata", {}).get("script_id", "1")
-    narration_path = state.get("narration_path")
-    subtitle_path = state.get("subtitle_path")
+    workflow_id = state.get("job_id")
+    render_output = state.get("render_output_path")
     
-    if not narration_path or not os.path.exists(narration_path):
-        logger.error(f"Narration audio missing: {narration_path}")
-        return {"errors": state.get("errors", []) + ["Narration audio missing for rendering"]}
-        
-    ffmpeg_path = "C:\\Users\\athar\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1.1-full_build\\bin\\ffmpeg.exe"
-    if not os.path.exists(ffmpeg_path):
-        ffmpeg_path = "ffmpeg" # fallback to path
-        
-    video_path = os.path.join("assets", "input", "video", "gameplay_test.mp4")
-    overlay_path = os.path.join("assets", "input", "video", "watermark.png")
-    final_output_path = os.path.join("assets", "renders", f"render_{job_id}.mp4")
+    # 1. If render output already exists, return it immediately (idempotent resume)
+    if render_output:
+        logger.info("Render output already present in state, skipping queue dispatch.")
+        return {}
+
+    # 2. Check if a queue job already exists for this workflow stage
+    db_job_id = None
+    db_status = None
     
-    os.makedirs(os.path.dirname(final_output_path), exist_ok=True)
-    
-    # Construct Render Job
-    job = RenderJob(
-        job_id=job_id,
-        script_id=str(script_id),
-        narration_path=narration_path,
-        background_video_path=video_path,
-        subtitle_path=subtitle_path if subtitle_path and os.path.exists(subtitle_path) else None,
-        output_path=final_output_path,
-        resolution="1080x1920"
-    )
-    
-    try:
-        composer = FinalVideoComposer(ffmpeg_path=ffmpeg_path)
-        logger.info(f"Composing video for job {job_id}...")
+    async with db_manager.session_factory() as session:
+        stmt = select(PipelineJobModel).where(
+            PipelineJobModel.workflow_id == workflow_id,
+            PipelineJobModel.current_stage == JobType.RENDER.value
+        ).order_by(PipelineJobModel.created_at.desc()).limit(1)
+        result = await session.execute(stmt)
+        db_job = result.scalar_one_or_none()
+        if db_job:
+            db_job_id = db_job.id
+            db_status = db_job.status
+
+    # 3. If job exists and is complete, fetch and return result
+    if db_status == "completed" and db_job_id:
+        logger.info(f"Existing render job {db_job_id} found in completed state. Resuming result.")
+        result = await job_tracker.get_job_result(db_job_id)
+        if result:
+            return result
+
+    # 4. If no job exists or the previous job failed, dispatch a new one
+    if not db_job_id or db_status in ("failed", "dead"):
+        logger.info(f"Dispatching render job to queue for workflow {workflow_id}...")
         
-        overlays = [overlay_path] if os.path.exists(overlay_path) else []
-        output = await composer.compose_video(job, overlay_paths=overlays)
+        script_id = state.get("execution_metadata", {}).get("script_id", "1")
+        narration_path = state.get("narration_path")
+        subtitle_path = state.get("subtitle_path")
+        scene_timeline_path = state.get("scene_timeline_path")
         
-        # Export / Archive
-        export_mgr = ExportManager()
-        archive_path = export_mgr.archive_render(job)
-        
-        logger.info(f"Final composition complete: {output}")
-        
-        return {
-            "render_output_path": output
+        if not narration_path:
+            logger.error("No narration path in state for rendering.")
+            return {
+                "errors": state.get("errors", []) + ["Narration audio missing for rendering"]
+            }
+            
+        payload = {
+            "script_id": script_id,
+            "narration_path": narration_path,
+            "subtitle_path": subtitle_path,
+            "scene_timeline_path": scene_timeline_path,
+            "execution_metadata": state.get("execution_metadata", {})
         }
         
-    except Exception as e:
-        logger.exception(f"Render node failed: {e}")
-        return {
-            "errors": state.get("errors", []) + [f"Render execution failed: {str(e)}"]
-        }
+        # Enqueue Render job
+        db_job_id = await job_dispatcher.dispatch(
+            job_type=JobType.RENDER,
+            workflow_id=workflow_id,
+            payload=payload,
+            priority=JobPriority.HIGH  # Elevate priority for resource-intensive renders
+        )
+
+    # 5. Await job completion (polls database/Redis)
+    logger.info(f"Awaiting completion of render job {db_job_id}...")
+    result = await job_tracker.await_job_completion(db_job_id)
+    return result
+

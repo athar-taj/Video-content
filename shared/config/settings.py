@@ -66,6 +66,6 @@ class Settings(BaseSettings):
     RETENTION_FAILED_DAYS: int = 7
     RETENTION_ARCHIVE_DAYS: int = 30
     
-    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True, extra="ignore")
 
 settings = Settings()

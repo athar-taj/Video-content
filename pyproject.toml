@@ -23,7 +23,8 @@ dependencies = [
     "rapidfuzz>=3.0.0",
     "numpy>=1.24.0",
     "jinja2>=3.1.0",
-    "argparse"
+    "argparse",
+    "rq>=1.15.0"
 ]
 readme = "README.md"
 requires-python = ">=3.10"
