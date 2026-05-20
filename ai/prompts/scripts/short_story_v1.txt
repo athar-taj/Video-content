@@ -1,0 +1,11 @@
+Rewrite this story into a conversational short-form script for narration.
+Target length: {{target_words}} words.
+Original Story: {{content}}
+
+Narrator Instructions:
+- Use short, impactful sentences.
+- Speak directly to the viewer.
+- Maintain a conversational and engaging tone.
+- Build tension throughout the story.
+
+Narrator Script:

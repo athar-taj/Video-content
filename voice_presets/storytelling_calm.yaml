@@ -1,0 +1,13 @@
+preset_name: storytelling_calm
+provider: kokoro
+voice_name: af_bella
+gender: female
+language: en-US
+narration_style: storytelling
+emotional_tone: calm
+speech_speed: 1.0
+pitch: 0.0
+stability: 0.8
+energy: 0.5
+pause_style: natural
+pacing_style: steady

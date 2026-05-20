@@ -1,0 +1,14 @@
+Create a viral hook for a TikTok/Reels video.
+Topic: {{topic}}
+Subreddit: {{subreddit|default('General')}}
+
+{% if tone == 'suspense' %}
+Start with a question that implies a dark secret.
+{% elif tone == 'emotional' %}
+Start with a highly relatable emotional struggle.
+{% else %}
+Start with a shocking fact or statement.
+{% endif %}
+
+The hook should be under 15 words.
+Hook:

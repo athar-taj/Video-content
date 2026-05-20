@@ -1,0 +1,13 @@
+preset_name: horror_narrator
+provider: kokoro
+voice_name: am_adam
+gender: male
+language: en-US
+narration_style: suspense
+emotional_tone: mysterious
+speech_speed: 0.8
+pitch: -3.0
+stability: 0.9
+energy: 0.2
+pause_style: dramatic
+pacing_style: slow

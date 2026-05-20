@@ -1,0 +1,4 @@
+Create a viral hook for a short-form video based on this topic: {{topic}}
+The hook should be suspenseful and curiosity-driven.
+Topic: {{topic}}
+Hook:

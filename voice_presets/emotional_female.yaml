@@ -1,0 +1,13 @@
+preset_name: emotional_female
+provider: murf
+voice_name: samantha_warm
+gender: female
+language: en-US
+narration_style: emotional
+emotional_tone: emotional
+speech_speed: 0.95
+pitch: 0.5
+stability: 0.9
+energy: 0.4
+pause_style: natural
+pacing_style: steady
