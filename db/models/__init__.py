@@ -20,6 +20,7 @@ from .queue import (
     PipelineJobModel, JobFailureModel, WorkerStateModel, DeadLetterJobModel
 )
 from .database import Topic, Script, WorkflowJob
+from .twitter_discovery import TwitterTrend, TrendCluster, InfluencerMetrics
 
 __all__ = [
     "Base", "RedditTopic", "RedditComment", "ProcessingLog", 
@@ -30,5 +31,6 @@ __all__ = [
     "CaptionRenderProfile", "VideoAssetModel", "VideoClipModel", "AssetUsageLog",
     "SceneTimelineModel", "SceneSegmentModel",
     "PipelineJobModel", "JobFailureModel", "WorkerStateModel", "DeadLetterJobModel",
-    "Topic", "Script", "WorkflowJob"
+    "Topic", "Script", "WorkflowJob",
+    "TwitterTrend", "TrendCluster", "InfluencerMetrics"
 ]

@@ -23,7 +23,7 @@ async def _process_script_async(job_id: str, workflow_id: str, payload: Dict[str
     router = ProviderRouter()
     generator = ScriptGenerator()
     
-    providers_to_try = list(router.llm_chains.get(workflow_type, ["Ollama"]))
+    providers_to_try = await router.get_llm_chain(workflow_type)
     last_error = None
     selected_provider = None
     script_data = None
@@ -57,7 +57,14 @@ async def _process_script_async(job_id: str, workflow_id: str, payload: Dict[str
             last_error = e
             
     if not selected_provider:
-        logger.critical("All LLM providers failed script generation! Trying Ollama fallback.")
+        fallback_provider = "Ollama"
+        from shared.config.settings import settings
+        if settings.ENV == "development":
+            from ai.workflows.pipeline.provider_capability_registry import provider_capability_registry
+            if not await provider_capability_registry.is_provider_available("ollama"):
+                fallback_provider = "Mock"
+                
+        logger.critical(f"All LLM providers failed script generation! Trying {fallback_provider} fallback.")
         try:
             t_id = int(topic_id) if str(topic_id).isdigit() else 1
             result = await generator.generate_full_script(
@@ -66,9 +73,9 @@ async def _process_script_async(job_id: str, workflow_id: str, payload: Dict[str
                 raw_body=body,
                 subreddit=subreddit,
                 target_duration=60,
-                provider="Ollama"
+                provider=fallback_provider
             )
-            selected_provider = "Ollama"
+            selected_provider = fallback_provider
             script_data = {
                 "hook": result.hook,
                 "story": result.full_script,
@@ -76,7 +83,7 @@ async def _process_script_async(job_id: str, workflow_id: str, payload: Dict[str
                 "duration": result.metadata.get("estimated_duration", 60)
             }
         except Exception as e:
-            logger.exception("Ultimate fallback LLM Ollama failed as well!")
+            logger.exception(f"Ultimate fallback LLM {fallback_provider} failed as well!")
             raise RuntimeError(f"All script generation providers failed: {last_error or e}")
 
     # Persist in Database

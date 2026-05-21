@@ -35,16 +35,21 @@ class ProviderRouter:
     
     @staticmethod
     async def get_provider_for_task(task_name: str) -> BaseLLMProvider:
+        from ai.workflows.pipeline.provider_capability_registry import provider_capability_registry
+        from shared.logging.logger import log
+        
         # 1. Get preferred provider from settings
         preferred_name = settings.MODEL_ROUTING.get(task_name, "ollama")
-        provider = ProviderFactory.get_provider(preferred_name)
         
-        # 2. Health check with fallback
-        if await provider.health_check():
-            return provider
+        # 2. Capability and health check with fallback
+        if await provider_capability_registry.is_provider_available(preferred_name):
+            provider = ProviderFactory.get_provider(preferred_name)
+            if await provider.health_check():
+                return provider
             
-        # 3. Automatic fallback to Ollama (local) if primary is down
-        if preferred_name != "ollama":
+        # 3. Automatic fallback to Ollama (local) if primary is down/unavailable
+        if preferred_name.lower() != "ollama":
+            log.warning(f"Preferred provider '{preferred_name}' for task '{task_name}' is down or unavailable. Falling back to Ollama.")
             return ProviderFactory.get_provider("ollama")
             
-        return provider
+        return ProviderFactory.get_provider("ollama")

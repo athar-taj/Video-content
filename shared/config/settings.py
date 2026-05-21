@@ -21,8 +21,42 @@ class Settings(BaseSettings):
     HF_API_TOKEN: Optional[str] = None
     MISTRAL_API_KEY: Optional[str] = None
     SARVAM_API_KEY: Optional[str] = None
+    GEMINI_API_KEY: Optional[str] = "AIzaSyCjGaF7_UffyKcSYKaseFTiGyrVsaaBKMA"
+    ELEVENLABS_API_KEY: Optional[str] = "4fcf3611fefbdeb3fa21e2844a2038a36cf595e97ba80f74cf3e2528b7e1c247"
+    MURF_API_KEY: Optional[str] = "ap2_284b65bf-5367-4f02-b5b2-541f6c535a8c"
+    ANTHROPIC_API_KEY: Optional[str] = None
+    GOOGLE_API_KEY: Optional[str] = None
+    KOKORO_MODEL_PATH: Optional[str] = None
+    FFMPEG_BINARY: str = "ffmpeg"
+    LANGGRAPH_CHECKPOINT_BACKEND: str = "redis"
 
-    
+    # Provider Activation Flags
+    ENABLE_OPENAI: bool = True
+    ENABLE_CLAUDE: bool = True
+    ENABLE_MURF: bool = True
+    ENABLE_OLLAMA: bool = True
+    ENABLE_KOKORO: bool = True
+    ENABLE_SARVAM: bool = True
+    ENABLE_HF: bool = True
+    ENABLE_GEMINI: bool = False
+    ENABLE_MISTRAL: bool = True
+    ENABLE_TWITTER: bool = True
+    ENABLE_TWIKIT: bool = True
+    ENABLE_SNSCRAPE: bool = True
+    ENABLE_GPU_RENDERING: bool = False
+    MAX_RENDER_WORKERS: int = 2
+
+    # Twitter API v2 Credentials
+    TWITTER_API_KEY: Optional[str] = None
+    TWITTER_API_SECRET: Optional[str] = None
+    TWITTER_BEARER_TOKEN: Optional[str] = None
+    TWITTER_ACCESS_TOKEN: Optional[str] = None
+    TWITTER_ACCESS_SECRET: Optional[str] = None
+
+    # Resource Constraints for Local Models
+    MAX_VRAM_GB: float = 8.0
+    LOCAL_MODEL_SIZE: str = "auto"
+
     # Reddit API
     REDDIT_CLIENT_ID: Optional[str] = None
     REDDIT_CLIENT_SECRET: Optional[str] = None

@@ -30,6 +30,12 @@ class GenerationService:
         template_path = PromptEngine.get_template_path(category, template_name)
         prompt = PromptEngine.load_prompt(template_path, variables)
         
+        # Optimize prompt for local models
+        is_local = provider.__class__.__name__ in ["OllamaProvider", "HuggingFaceProvider"]
+        if is_local:
+            prompt = PromptEngine.optimize_for_local_model(prompt, task_name)
+            log.debug(f"Optimized prompt for local model {provider.__class__.__name__}")
+        
         # 3. Generate
         start_time = time.time()
         try:

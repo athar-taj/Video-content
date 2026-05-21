@@ -25,6 +25,12 @@ class LangGraphOrchestrator:
         
         # Try to use Redis checkpointer, fallback to MemorySaver
         try:
+            # Synchronously test connection
+            import redis
+            from shared.config.settings import settings
+            r = redis.Redis.from_url(settings.REDIS_URL, socket_connect_timeout=1.0)
+            r.ping()
+            
             checkpointer = RedisCheckpointSaver()
             logger.info("Compiled LangGraph with RedisCheckpointSaver.")
         except Exception as e:

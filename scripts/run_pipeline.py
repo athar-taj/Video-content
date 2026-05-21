@@ -21,6 +21,14 @@ async def main():
     logger.info("Starting Zem Autonomous AI Media Operating System")
     logger.info("==================================================")
 
+    # Pre-flight health checks
+    from shared.validation.environment_validator import EnvironmentValidator
+    validator = EnvironmentValidator()
+    if not await validator.generate_health_report():
+        logger.critical("Pre-flight check failed. Aborting execution.")
+        sys.exit(1)
+
+
     # Initialize the workflow registry and the LangGraph Autonomous Brain
     registry = WorkflowRegistry()
     orchestrator = LangGraphOrchestrator(registry)

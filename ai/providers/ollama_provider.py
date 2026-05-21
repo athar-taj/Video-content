@@ -12,7 +12,13 @@ class OllamaProvider(BaseLLMProvider):
         self.url = f"{self.base_url}/api/chat"
 
     async def generate(self, prompt: str, **kwargs) -> GenerationResponse:
-        model = kwargs.get("model", settings.DEFAULT_LOCAL_MODEL)
+        model = kwargs.get("model")
+        if not model:
+            from ai.providers.local_model_manager import local_model_manager
+            model = local_model_manager.recommend_local_model()
+            # Verify and pull model in the background if missing
+            await local_model_manager.verify_and_preload_model(model)
+            
         log.debug(f"Ollama generating with {model}...")
         
         async with httpx.AsyncClient(timeout=60.0) as client:

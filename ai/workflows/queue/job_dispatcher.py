@@ -57,8 +57,40 @@ class JobDispatcher:
             await session.commit()
 
         # 4. Determine RQ job arguments and enqueue
-        # We target a generic job handler function that will run on the workers
-        # The worker module path will be e.g. "ai.workflows.workers.script_worker.process_job"
+        # If Redis is unavailable, run inline in the current running event loop
+        if not queue_manager.redis_available:
+            logger.info(f"[Offline Mode] Running {job_type.value} worker inline/synchronously for job {job_id}")
+            import importlib
+            from ai.workflows.workers.base_worker import execute_job_wrapper
+            
+            try:
+                worker_module = importlib.import_module(f"ai.workflows.workers.{job_type.value}_worker")
+                processor_func = getattr(worker_module, f"_process_{job_type.value}_async")
+                
+                async with db_manager.session_factory() as session:
+                    db_job = await session.get(PipelineJobModel, job_id)
+                    if db_job:
+                        db_job.status = JobStatus.QUEUED.value
+                        await session.commit()
+                
+                await execute_job_wrapper(
+                    job_id=job_id,
+                    workflow_id=workflow_id,
+                    payload=payload,
+                    job_type=job_type,
+                    processor_func=processor_func
+                )
+                return job_id
+            except Exception as e:
+                logger.exception(f"Failed to execute inline job {job_id}: {e}")
+                async with db_manager.session_factory() as session:
+                    db_job = await session.get(PipelineJobModel, job_id)
+                    if db_job:
+                        db_job.status = JobStatus.FAILED.value
+                        await session.commit()
+                raise e
+
+        # Target a generic job handler function that will run on the workers
         func_path = f"ai.workflows.workers.{job_type.value}_worker.process_job"
         
         rq_queue = queue_manager.get_queue(queue_name)

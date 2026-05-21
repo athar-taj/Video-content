@@ -30,7 +30,7 @@ async def _process_tts_async(job_id: str, workflow_id: str, payload: Dict[str, A
     router = ProviderRouter()
     tts_service = TTSService(output_dir="assets/audio/generated")
     
-    providers_to_try = list(router.tts_chains.get(workflow_type, ["Kokoro"]))
+    providers_to_try = await router.get_tts_chain(workflow_type)
     
     selected_provider = None
     audio_path = None

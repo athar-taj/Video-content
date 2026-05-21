@@ -59,8 +59,8 @@ async def execute_job_wrapper(
             db_job = await session.get(PipelineJobModel, job_id)
             if db_job:
                 db_job.status = JobStatus.COMPLETED.value
-                # Keep payload and add result field
-                payload_updated = db_job.payload or {}
+                # Keep payload and add result field (cloned to trigger SQLAlchemy tracking)
+                payload_updated = dict(db_job.payload or {})
                 payload_updated["result"] = result
                 db_job.payload = payload_updated
                 db_job.updated_at = datetime.utcnow()
@@ -103,6 +103,20 @@ async def execute_job_wrapper(
                     db_job.status = JobStatus.QUEUED.value
                     db_job.updated_at = datetime.utcnow()
                     await session.commit()
+
+            # If Redis is unavailable, execute the retry inline within the current async loop
+            if not queue_manager.redis_available:
+                logger.info(f"[Offline Mode] Running retry {next_retry}/{max_retries} inline for job {job_id}...")
+                await asyncio.sleep(backoff_delay)
+                return await execute_job_wrapper(
+                    job_id=job_id,
+                    workflow_id=workflow_id,
+                    payload=payload,
+                    job_type=job_type,
+                    processor_func=processor_func,
+                    max_retries=max_retries,
+                    base_delay=base_delay
+                )
 
             # Re-enqueue in RQ with delay
             queue_name = f"{job_type.value}_queue"

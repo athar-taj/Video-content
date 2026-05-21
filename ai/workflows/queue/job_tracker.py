@@ -17,26 +17,27 @@ class JobTracker:
     async def get_job_status(self, job_id: str) -> JobStatus:
         """Determines the current status of a job from Redis or database fallback."""
         # 1. Try fetching from Redis (active state source)
-        try:
-            redis_conn = queue_manager.get_redis_connection()
-            rq_job = Job.fetch(job_id, connection=redis_conn)
-            
-            # Map RQ status to our JobStatus enum
-            status_map = {
-                "queued": JobStatus.QUEUED,
-                "started": JobStatus.ACTIVE,
-                "finished": JobStatus.COMPLETED,
-                "failed": JobStatus.FAILED,
-                "deferred": JobStatus.PENDING,
-            }
-            rq_status = rq_job.get_status()
-            if rq_status in status_map:
-                return status_map[rq_status]
-        except NoSuchJobError:
-            # Job might have expired or not yet reached Redis (extremely rare race condition)
-            pass
-        except Exception as e:
-            logger.warning(f"Error checking Redis for job {job_id}: {e}")
+        if queue_manager.redis_available:
+            try:
+                redis_conn = queue_manager.get_redis_connection()
+                rq_job = Job.fetch(job_id, connection=redis_conn)
+                
+                # Map RQ status to our JobStatus enum
+                status_map = {
+                    "queued": JobStatus.QUEUED,
+                    "started": JobStatus.ACTIVE,
+                    "finished": JobStatus.COMPLETED,
+                    "failed": JobStatus.FAILED,
+                    "deferred": JobStatus.PENDING,
+                }
+                rq_status = rq_job.get_status()
+                if rq_status in status_map:
+                    return status_map[rq_status]
+            except NoSuchJobError:
+                # Job might have expired or not yet reached Redis (extremely rare race condition)
+                pass
+            except Exception as e:
+                logger.warning(f"Error checking Redis for job {job_id}: {e}")
 
         # 2. Fall back to PostgreSQL database
         async with db_manager.session_factory() as session:
@@ -49,17 +50,18 @@ class JobTracker:
     async def get_job_result(self, job_id: str) -> Optional[Dict[str, Any]]:
         """Retrieves the result payload of a completed job."""
         # Try fetching from Redis first
-        try:
-            redis_conn = queue_manager.get_redis_connection()
-            rq_job = Job.fetch(job_id, connection=redis_conn)
-            if rq_job.is_finished:
-                # RQ job results are returned from the execution function
-                # If result is a dict, we return it
-                res = rq_job.result
-                if isinstance(res, dict):
-                    return res
-        except Exception:
-            pass
+        if queue_manager.redis_available:
+            try:
+                redis_conn = queue_manager.get_redis_connection()
+                rq_job = Job.fetch(job_id, connection=redis_conn)
+                if rq_job.is_finished:
+                    # RQ job results are returned from the execution function
+                    # If result is a dict, we return it
+                    res = rq_job.result
+                    if isinstance(res, dict):
+                        return res
+            except Exception:
+                pass
 
         # Fall back to database payload/snapshot
         async with db_manager.session_factory() as session:
