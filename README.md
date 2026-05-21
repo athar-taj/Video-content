@@ -13,6 +13,7 @@ Zem is a lightweight, Python-first AI orchestration pipeline designed for rapid 
 - **Final Video Compositor (Phase 6)**: Advanced `FFmpeg` rendering engine that orchestrates background scaling, audio syncing, branding overlays, and hardcodes styled `.ass` subtitles safely within mobile boundaries.
 - **Static Orchestration (Phase 7)**: A stateful, retry-safe pipeline engine that automates the end-to-end process with dependency guardrails.
 - **Autonomous AI Operating System (Phase 8)**: A true LangGraph-driven decision engine that dynamically evaluates content potential, routing execution through cheap/balanced/premium pipelines, handling conditional retries, and managing parallel sub-tasks.
+- **Job Queue & Distributed Execution (Phase 9)**: Scalable asynchronous background execution using Redis Queue (RQ) and staging PostgreSQL tracking tables, providing thread-safe worker execution and rendering workload isolation.
 - **Cost-Aware Multi-Provider Foundation**: Unified abstraction for LLMs (**OpenAI**, **Mistral**, **Ollama**), TTS, and logic ensuring Zem falls back dynamically and operates safely offline.
 
 ## 📂 Directory Structure
@@ -26,6 +27,8 @@ zem/
 │   ├── video_assets/   # Scene mapping, transitions, pacing orchestration
 │   ├── rendering/      # Subtitle ASS generation, FFmpeg compositor, overlays
 │   └── workflows/      # Stateful pipeline engine, retry management, dependency resolvers
+│       ├── queue/      # RQ queue manager, job dispatcher, staging DB validation
+│       └── workers/    # General and render worker entry points
 ├── db/
 │   ├── models/         # Modular SQLAlchemy models (Topic, Script, Audio)
 │   ├── repositories/   # Async Repository Pattern implementations
@@ -104,6 +107,21 @@ To test only the FFmpeg subtitle burning and scene composition:
 python scripts/test_final_video_composer.py
 ```
 
+### 6. Background Workers & Queue System
+Start general workers (listening to script, tts, subtitle, upload, and analytics queues):
+```bash
+python scripts/run_worker.py
+```
+Start dedicated render workers (handles CPU-intensive FFmpeg compositions in isolation):
+```bash
+python scripts/run_render_worker.py
+```
+Monitor queue depths, active jobs, and worker heartbeats in real-time:
+```bash
+python scripts/monitor_queues.py --watch
+```
+Detailed instructions on queue structures, retries, and staging schemas are in [`docs/job_queue.md`](docs/job_queue.md).
+
 ## 📐 Architecture Principles
 Zem strictly follows a **Cost-Aware Multi-Provider Philosophy**. 
 It is a capability-driven engine that enforces:
@@ -111,7 +129,7 @@ It is a capability-driven engine that enforces:
 2. **Premium-When-Needed** (OpenAI, Sarvam)
 3. **Fallback-Always** (Retry managers and stateful dependency guardrails)
 
-Read the full architecture spec in [`docs/architecture_principles.md`](docs/architecture_principles.md) and learn about the routing system in [`docs/langgraph_decision_engine.md`](docs/langgraph_decision_engine.md).
+Read the full architecture spec in [`docs/architecture_principles.md`](docs/architecture_principles.md), routing system in [`docs/langgraph_decision_engine.md`](docs/langgraph_decision_engine.md), and repository/environment guidelines in [`docs/repository_hygiene.md`](docs/repository_hygiene.md).
 
 ## 📊 Observability
 Logs are stored in `logs/error.log` and printed to stdout via **Loguru**. Voice assets and generation metrics are tracked in the `generated_audio` table.

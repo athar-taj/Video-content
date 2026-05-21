@@ -110,6 +110,23 @@ Transitions the orchestration layer from a static linear pipeline to a dynamic, 
 - **Scripts Available**:
   - `python scripts/test_langgraph_pipeline.py` - Verifies the dynamic graph routing and execution.
 
+### Phase 9 — Job Queue & Distributed Execution System (Completed)
+Builds a scalable asynchronous Job Queue & Distributed Execution System (RQ) to run background task workflows, separate rendering computations, stage/track executions inside PostgreSQL, and enable recovery/retries.
+
+**Key Features:**
+- **Asynchronous Execution**: Decouples LangGraph node transitions from direct execution via `JobDispatcher` and Redis Queue (RQ).
+- **PostgreSQL Job Staging**: Persists all job statuses, parameters, and results in `pipeline_jobs` and `job_failures` tables before enqueuing.
+- **Worker Isolation**: General worker handles light tasks (scripts, TTS, subtitles, uploads, analytics), while a dedicated render worker executes resource-heavy FFmpeg video comps on the `render_queue`.
+- **Worker Registry & Heartbeats**: Background thread logs active worker health metrics, states, and heartbeats to `worker_states` database table.
+- **Thread-Safe DB Pool Access**: Isolated thread-local engines and session factories prevent connection pool conflicts between heartbeat loops and active workers.
+- **Scripts Available**:
+  - `python scripts/run_worker.py` - Launches standard queues worker.
+  - `python scripts/run_render_worker.py` - Launches dedicated rendering worker.
+  - `python scripts/monitor_queues.py` - Visualizes queue/worker status on console dashboard in real-time.
+  - `python scripts/retry_failed_jobs.py` - Inspects failed jobs and replays dead letter records.
+  - `python scripts/purge_dead_jobs.py` - Cleans up failure histories and dead logs.
+
 ---
 
 *This document is actively maintained as new features are integrated into the architecture.*
+
