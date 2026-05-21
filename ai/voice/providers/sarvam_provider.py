@@ -9,7 +9,7 @@ class SarvamProvider(BaseTTSProvider):
     """Sarvam AI TTS provider."""
     
     def __init__(self, api_key: str = None):
-        self.api_key = api_key or settings.HF_API_TOKEN # Using HF token as placeholder if SARVAM not in settings
+        self.api_key = api_key or settings.SARVAM_API_KEY
         self.url = "https://api.sarvam.ai/text-to-speech"
 
     async def generate_audio(self, text: str, voice_id: str, output_path: str, **kwargs) -> TTSResponse:

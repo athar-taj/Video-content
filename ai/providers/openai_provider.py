@@ -8,8 +8,7 @@ class OpenAIProvider(BaseLLMProvider):
     """Provider for OpenAI API."""
     
     def __init__(self, api_key: str = None):
-        self.api_key = api_key or settings.HF_API_TOKEN # Wait, I should add OPENAI_API_KEY to settings
-        # Actually I'll use the environment variable directly or from settings if I update it
+        self.api_key = api_key or settings.OPENAI_API_KEY
         self.url = "https://api.openai.com/v1/chat/completions"
 
     async def generate(self, prompt: str, **kwargs) -> GenerationResponse:

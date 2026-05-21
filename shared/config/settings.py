@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: Optional[str] = None
     HF_API_TOKEN: Optional[str] = None
     MISTRAL_API_KEY: Optional[str] = None
+    SARVAM_API_KEY: Optional[str] = None
+
     
     # Reddit API
     REDDIT_CLIENT_ID: Optional[str] = None
