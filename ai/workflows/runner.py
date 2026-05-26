@@ -16,7 +16,7 @@ class WorkflowRunner:
         start_time = time.time()
         
         # Get DB session
-        async for session in db_manager.get_session():
+        async with db_manager.get_session() as session:
             repo = ContentRepository(session)
             
             try:

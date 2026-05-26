@@ -74,7 +74,7 @@ async def _process_tts_async(job_id: str, workflow_id: str, payload: Dict[str, A
     # Persist in DB
     audio_db_id = None
     try:
-        async for session in db_manager.get_session():
+        async with db_manager.get_session() as session:
             s_id = int(script_id) if str(script_id).isdigit() else 1
             audio_obj = GeneratedAudio(
                 script_id=s_id,

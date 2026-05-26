@@ -3,6 +3,14 @@ from loguru import logger
 from shared.config.settings import settings
 
 def setup_logging():
+    # Force stdout/stderr to use UTF-8 on Windows to avoid UnicodeEncodeErrors with emojis
+    if sys.platform.startswith("win"):
+        try:
+            sys.stdout.reconfigure(encoding='utf-8')
+            sys.stderr.reconfigure(encoding='utf-8')
+        except Exception:
+            pass
+
     # Remove default handler
     logger.remove()
     

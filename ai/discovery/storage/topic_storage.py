@@ -17,7 +17,7 @@ class TopicStorageService:
 
     async def store_batch(self, topics: List[Dict[str, Any]]):
         """Process and store a batch of topics with duplicate prevention."""
-        async for session in db_manager.get_session():
+        async with db_manager.get_session() as session:
             repo = TopicRepository(session)
             
             for topic_data in topics:

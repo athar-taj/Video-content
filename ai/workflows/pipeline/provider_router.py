@@ -11,30 +11,30 @@ class ProviderRouter:
     def __init__(self):
         from shared.config.settings import settings
         
-        # LLM Provider Preference Chains (Base chains, now including specialized workflows)
+        # LLM Provider Preference Chains (Base chains, prioritizing local/free models first)
         self.llm_base_chains = {
-            "cheap": ["Ollama", "Mistral", "OpenAI"],
-            "balanced": ["Mistral", "OpenAI", "Claude"],
-            "premium": ["Claude", "OpenAI", "Mistral", "Ollama"],
+            "cheap": ["HuggingFace", "OpenAI"],
+            "balanced": ["HuggingFace", "OpenAI", "Claude"],
+            "premium": ["HuggingFace", "OpenAI", "Claude"],
             
-            # New specialized workflows
-            "ultra_cheap_workflow": ["Ollama", "HuggingFace"],
-            "local_only_workflow": ["Ollama"],
-            "hybrid_workflow": ["Ollama"],
-            "premium_optional_workflow": ["Claude", "OpenAI", "Mistral", "Ollama"]
+            # Specialized workflows
+            "ultra_cheap_workflow": ["HuggingFace"],
+            "local_only_workflow": ["HuggingFace"],
+            "hybrid_workflow": ["HuggingFace"],
+            "premium_optional_workflow": ["OpenAI", "Claude", "HuggingFace"]
         }
         
-        # TTS Provider Preference Chains
+        # TTS Provider Preference Chains (Base chains, prioritizing Kokoro and Sarvam first)
         self.tts_base_chains = {
-            "cheap": ["Kokoro", "Sarvam", "ElevenLabs"],
-            "balanced": ["Sarvam", "Kokoro", "ElevenLabs"],
-            "premium": ["ElevenLabs", "Sarvam", "Kokoro"],
+            "cheap": ["Kokoro", "Sarvam", "Murf", "ElevenLabs"],
+            "balanced": ["Kokoro", "Sarvam", "Murf", "ElevenLabs"],
+            "premium": ["Kokoro", "Sarvam", "Murf", "ElevenLabs"],
             
-            # New specialized workflows
+            # Specialized workflows
             "ultra_cheap_workflow": ["Kokoro"],
             "local_only_workflow": ["Kokoro"],
             "hybrid_workflow": ["Sarvam", "Kokoro"],
-            "premium_optional_workflow": ["ElevenLabs", "Sarvam", "Kokoro"]
+            "premium_optional_workflow": ["Murf", "ElevenLabs", "Sarvam", "Kokoro"]
         }
 
         # Keep legacy properties for backward compatibility
@@ -46,7 +46,7 @@ class ProviderRouter:
         base_chain = self.llm_base_chains.get(workflow_type)
         if not base_chain:
             # Fallback to cheap if unknown
-            base_chain = self.llm_base_chains.get("cheap", ["Ollama"])
+            base_chain = self.llm_base_chains.get("cheap", ["HuggingFace"])
             
         filtered = []
         for provider in base_chain:
@@ -55,10 +55,10 @@ class ProviderRouter:
                     filtered.append(provider)
                     
         if not filtered:
-            fallback = "Ollama"
+            fallback = "HuggingFace"
             from shared.config.settings import settings
             if settings.ENV == "development":
-                if not await provider_capability_registry.is_provider_available("ollama"):
+                if not await provider_capability_registry.is_provider_available("huggingface"):
                     fallback = "Mock"
             logger.warning(
                 f"⚠️ All LLM providers in chain for '{workflow_type}' are unavailable or unhealthy! "

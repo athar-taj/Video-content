@@ -2,7 +2,6 @@ import logging
 import json
 import re
 from typing import Dict, Any
-from ai.providers.factory import ProviderFactory
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +38,8 @@ Return ONLY the raw JSON object. Do not include markdown formatting or wrapper t
     retention_score = 50
     
     try:
-        provider = ProviderFactory.get_provider("ollama")
+        from ai.providers.factory import ProviderRouter
+        provider = await ProviderRouter.get_provider_for_task("validation")
         response = await provider.generate(prompt=prompt, max_tokens=150)
         
         # GenerationResponse wraps output in .content
@@ -53,7 +53,7 @@ Return ONLY the raw JSON object. Do not include markdown formatting or wrapper t
             emotional_score = int(data.get("emotional_score", 50))
             retention_score = int(data.get("retention_score", 50))
     except Exception as e:
-        logger.error(f"Failed to evaluate topic with Ollama: {e}. Using baseline scores of 50.")
+        logger.error(f"Failed to evaluate topic via local LLM: {e}. Using baseline scores of 50.")
         
     logger.info(f"Evaluated Scores - Viral: {viral_score}, Emotional: {emotional_score}, Retention: {retention_score}")
     return {

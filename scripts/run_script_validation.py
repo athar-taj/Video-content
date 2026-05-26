@@ -11,7 +11,7 @@ async def main():
     
     validator = ScriptValidator()
     
-    async for session in db_manager.get_session():
+    async with db_manager.get_session() as session:
         # 1. Fetch scripts that haven't been validated yet
         # (This is a simplified check for the demo)
         stmt = select(GeneratedScript).limit(5)

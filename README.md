@@ -4,17 +4,17 @@ Zem is a lightweight, Python-first AI orchestration pipeline designed for rapid 
 
 ## 🚀 Core Features
 
-- **Content Discovery (Phase 1)**: Autonomous Reddit ingestion with viral scoring, quality filtering, and duplicate detection.
-- **Trend Intelligence**: Intelligent multi-dimensional ranking algorithm using engagement velocity, time decay, and emotional triggers.
+- **Content Discovery & X/Twitter Trend Engine (Phases 1 & 11)**: Autonomous X/Twitter and Reddit trend ingestion. Leverages official APIs and robust scraping fallbacks with lexical similarity topic clustering and virality velocity tracking.
+- **Trend Intelligence**: Intelligent multi-dimensional ranking algorithm using engagement velocity, hashtags, user authority, and emotional triggers.
 - **Storytelling & Script Generation (Phase 2)**: Multi-stage AI engine for converting raw topics into conversational, high-retention short-form scripts.
-- **Voice Generation & TTS (Phase 3)**: Scalable narration engine supporting local (**Kokoro**) and premium (**Sarvam AI**) providers with automated routing.
+- **Voice Generation & TTS (Phase 3)**: Narration engine supporting local (**Kokoro**) and premium (**Sarvam AI**) providers with automated local-first routing.
 - **Dynamic Captions (Phase 4)**: Generates exact word-level timestamps (`faster-whisper`), styles them with ASS animations (karaoke fills, bounce, pop), and matches them to scripts.
 - **Background Visuals & Scene Mapping (Phase 5)**: Automatically slices scripts into emotional narrative beats, aligns durations, and splices niche-specific background gameplay/stock video.
 - **Final Video Compositor (Phase 6)**: Advanced `FFmpeg` rendering engine that orchestrates background scaling, audio syncing, branding overlays, and hardcodes styled `.ass` subtitles safely within mobile boundaries.
 - **Static Orchestration (Phase 7)**: A stateful, retry-safe pipeline engine that automates the end-to-end process with dependency guardrails.
 - **Autonomous AI Operating System (Phase 8)**: A true LangGraph-driven decision engine that dynamically evaluates content potential, routing execution through cheap/balanced/premium pipelines, handling conditional retries, and managing parallel sub-tasks.
 - **Job Queue & Distributed Execution (Phase 9)**: Scalable asynchronous background execution using Redis Queue (RQ) and staging PostgreSQL tracking tables, providing thread-safe worker execution and rendering workload isolation.
-- **Cost-Aware Multi-Provider Foundation**: Unified abstraction for LLMs (**OpenAI**, **Mistral**, **Ollama**), TTS, and logic ensuring Zem falls back dynamically and operates safely offline.
+- **Free-First & Local-First self-validating OS (Phase 10)**: Dynamic provider capability detection and fail-fast environment check before pipeline runs. Uses local models by default (Ollama, HuggingFace, Kokoro), only routing to premium APIs optionally when configured and available.
 
 ## 📂 Directory Structure
 
@@ -55,59 +55,58 @@ Our scalable narration system is built for performance and flexibility:
 
 ## 🛠️ Getting Started
 
-1. **Setup Environment**:
-   ```bash
-   cp .env.example .env
-   # Add your OpenAI, Mistral, and Reddit API keys
-   ```
+> [!NOTE]
+> For a detailed step-by-step setup walkthrough, hardware requirements, and background worker orchestration details, see the [Setup & Execution Guide](file:///z:/Zem/docs/setup_and_execution_guide.md).
 
-2. **Launch Infrastructure**:
+Zem comes with an automated one-command bootstrapping tool that initializes directories, config files, database schemas, migrations, and checks system dependencies.
+
+1. **Bootstrap Environment**:
+   ```bash
+   python scripts/bootstrap_environment.py
+   ```
+   *This copies `.env.example` to `.env` (if not existing), runs database migrations to the latest Alembic head, and verifies FFmpeg/FFprobe availability.*
+
+2. **Configure Credentials**:
+   Open `.env` and fill in any optional provider keys (e.g. OpenAI, Twitter, Sarvam) if you plan to use them.
+
+3. **Launch Optional Infrastructure Services**:
+   If using Redis for distributed queues or persistent LangGraph checkpointing:
    ```bash
    docker-compose -f infra/docker/docker-compose.yml up -d
    ```
 
-3. **Run Migrations**:
-   ```bash
-   py -m alembic upgrade head
-   ```
-
 ## 🏃 Execution Pipelines
 
-### 1. Content Discovery
-Fetch, filter, and ingest topics from Reddit:
+### 1. Real-Time Twitter Discovery
+Ingest and cluster real-time viral trends from X/Twitter:
+```bash
+python scripts/run_twitter_discovery.py
+```
+
+### 2. Reddit Ingestion (Fallback/Legacy)
+Fetch, filter, and ingest topics from subreddits:
 ```bash
 python scripts/run_content_discovery.py
 ```
 
-### 2. Script Generation
-Generate viral scripts for ranked topics:
-```bash
-python scripts/run_script_generation.py --limit 5
-```
-
-### 3. Voice Generation (TTS)
-Convert validated scripts into professional narration:
-```bash
-python scripts/run_tts_generation.py
-```
-
-### 4. End-to-End Autonomous Pipeline
-Run the fully autonomous orchestrator that evaluates, routes, and executes the complete flow:
+### 3. End-to-End Autonomous Pipeline
+Run the fully autonomous pre-validated orchestrator that runs pre-flight diagnostics, evaluates topics, routes, and renders the final video:
 ```bash
 python scripts/run_pipeline.py
 ```
-To test the LangGraph conditional routing and parallel state graph directly:
+*This validates dependencies, models, and assets automatically before executing LangGraph orchestration.*
+
+### 4. Integration & Routing Verification Tests
+Validate local-first capability routing decisions:
 ```bash
-python scripts/test_langgraph_pipeline.py
+python scripts/test_local_first_routing.py
+```
+Validate real-time Twitter ingestion, scoring, clustering, and routing workflows:
+```bash
+python scripts/test_twitter_pipeline.py
 ```
 
-### 5. Final Rendering Pipeline (Standalone)
-To test only the FFmpeg subtitle burning and scene composition:
-```bash
-python scripts/test_final_video_composer.py
-```
-
-### 6. Background Workers & Queue System
+### 5. Background Workers & Queue System
 Start general workers (listening to script, tts, subtitle, upload, and analytics queues):
 ```bash
 python scripts/run_worker.py

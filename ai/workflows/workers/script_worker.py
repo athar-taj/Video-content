@@ -57,11 +57,11 @@ async def _process_script_async(job_id: str, workflow_id: str, payload: Dict[str
             last_error = e
             
     if not selected_provider:
-        fallback_provider = "Ollama"
+        fallback_provider = "HuggingFace"
         from shared.config.settings import settings
         if settings.ENV == "development":
             from ai.workflows.pipeline.provider_capability_registry import provider_capability_registry
-            if not await provider_capability_registry.is_provider_available("ollama"):
+            if not await provider_capability_registry.is_provider_available("huggingface"):
                 fallback_provider = "Mock"
                 
         logger.critical(f"All LLM providers failed script generation! Trying {fallback_provider} fallback.")
@@ -89,7 +89,7 @@ async def _process_script_async(job_id: str, workflow_id: str, payload: Dict[str
     # Persist in Database
     script_db_id = None
     try:
-        async for session in db_manager.get_session():
+        async with db_manager.get_session() as session:
             t_id = int(topic_id) if str(topic_id).isdigit() else 1
             script_obj = GeneratedScript(
                 topic_id=t_id,

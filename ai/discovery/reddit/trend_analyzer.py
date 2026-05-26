@@ -17,7 +17,7 @@ class TrendAnalyzer:
         """Load recent topics, calculate scores, and update rankings in DB."""
         log.info("📊 Starting trend analysis and ranking...")
         
-        async for session in db_manager.get_session():
+        async with db_manager.get_session() as session:
             # 1. Fetch topics from the last 48 hours that haven't been processed recently
             stmt = select(RedditTopic).where(
                 RedditTopic.inserted_at >= datetime.utcnow().replace(hour=0) # Simple filter for today

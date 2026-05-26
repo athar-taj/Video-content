@@ -112,6 +112,7 @@ async def run_tests():
     orig_sarvam_key = settings.SARVAM_API_KEY
     orig_enable_hf = settings.ENABLE_HF
     orig_hf_token = settings.HF_API_TOKEN
+    orig_enable_ollama = settings.ENABLE_OLLAMA
     
     try:
         router = ProviderRouter()
@@ -124,6 +125,7 @@ async def run_tests():
         settings.SARVAM_API_KEY = "sarvam-test"
         settings.ENABLE_HF = True
         settings.HF_API_TOKEN = "hf-test"
+        settings.ENABLE_OLLAMA = True
         
         llm_chain = await router.get_llm_chain("premium_optional_workflow")
         assert_equal("OpenAI" in llm_chain, True, "OpenAI is routed when active")
@@ -150,6 +152,7 @@ async def run_tests():
         settings.SARVAM_API_KEY = orig_sarvam_key
         settings.ENABLE_HF = orig_enable_hf
         settings.HF_API_TOKEN = orig_hf_token
+        settings.ENABLE_OLLAMA = orig_enable_ollama
 
     # --------------------------------------------------
     # 4. Test Workflow Router Node Decisions

@@ -66,7 +66,7 @@ class EnvironmentValidator:
             "sqlalchemy": "pip install sqlalchemy",
             "asyncpg": "pip install asyncpg",
             "redis": "pip install redis",
-            "rq": "pip install rq",
+            "aio_pika": "pip install aio-pika",
             "alembic": "pip install alembic",
             "faster_whisper": "pip install faster-whisper",
             "rapidfuzz": "pip install rapidfuzz",
@@ -126,8 +126,8 @@ class EnvironmentValidator:
         # OpenAI
         if settings.ENABLE_OPENAI:
             if is_placeholder(settings.OPENAI_API_KEY):
-                self._add_failure(
-                    "OpenAI is enabled but OPENAI_API_KEY is missing or invalid.",
+                self._add_warning(
+                    "OpenAI is enabled but OPENAI_API_KEY is missing or invalid. Local/mock fallbacks will be used.",
                     "API Keys",
                     "Add OPENAI_API_KEY=sk-... to your .env file or set ENABLE_OPENAI=false to run offline"
                 )
@@ -135,8 +135,8 @@ class EnvironmentValidator:
         # Claude / Anthropic
         if settings.ENABLE_CLAUDE:
             if is_placeholder(settings.ANTHROPIC_API_KEY):
-                self._add_failure(
-                    "Claude is enabled but ANTHROPIC_API_KEY is missing or invalid.",
+                self._add_warning(
+                    "Claude is enabled but ANTHROPIC_API_KEY is missing or invalid. Local/mock fallbacks will be used.",
                     "API Keys",
                     "Add ANTHROPIC_API_KEY=sk-ant-... to your .env file or set ENABLE_CLAUDE=false"
                 )
@@ -144,8 +144,8 @@ class EnvironmentValidator:
         # Gemini / Google
         if getattr(settings, "ENABLE_GEMINI", False):
             if is_placeholder(settings.GEMINI_API_KEY) and is_placeholder(settings.GOOGLE_API_KEY):
-                self._add_failure(
-                    "Gemini is enabled but GEMINI_API_KEY / GOOGLE_API_KEY is missing or invalid.",
+                self._add_warning(
+                    "Gemini is enabled but GEMINI_API_KEY / GOOGLE_API_KEY is missing or invalid. Local/mock fallbacks will be used.",
                     "API Keys",
                     "Add GEMINI_API_KEY=... to your .env file or set ENABLE_GEMINI=false"
                 )
@@ -153,8 +153,8 @@ class EnvironmentValidator:
         # Sarvam AI
         if settings.ENABLE_SARVAM:
             if is_placeholder(settings.SARVAM_API_KEY):
-                self._add_failure(
-                    "Sarvam AI is enabled but SARVAM_API_KEY is missing or invalid.",
+                self._add_warning(
+                    "Sarvam AI is enabled but SARVAM_API_KEY is missing or invalid. Kokoro local TTS will be used as fallback.",
                     "API Keys",
                     "Add SARVAM_API_KEY=... to your .env file or set ENABLE_SARVAM=false"
                 )
@@ -163,16 +163,16 @@ class EnvironmentValidator:
         if getattr(settings, "ENABLE_ELEVENLABS", False) or is_placeholder(settings.ELEVENLABS_API_KEY) == False:
             if is_placeholder(settings.ELEVENLABS_API_KEY):
                 self._add_warning(
-                    "ElevenLabs API Key is missing or invalid. Narration fallback will be used.",
+                    "ElevenLabs API Key is missing or invalid. Kokoro local TTS will be used as fallback.",
                     "API Keys",
-                    "Add ELEVENLABS_API_KEY=... to your .env file"
+                    "Add ELEVENLABS_API_KEY=... to your .env file or set ENABLE_ELEVENLABS=false"
                 )
 
         # Murf AI
         if settings.ENABLE_MURF:
             if is_placeholder(settings.MURF_API_KEY):
-                self._add_failure(
-                    "Murf AI is enabled but MURF_API_KEY is missing or invalid.",
+                self._add_warning(
+                    "Murf AI is enabled but MURF_API_KEY is missing or invalid. Kokoro local TTS will be used as fallback.",
                     "API Keys",
                     "Add MURF_API_KEY=... to your .env file or set ENABLE_MURF=false"
                 )
@@ -270,6 +270,18 @@ class EnvironmentValidator:
                     "docker compose up -d redis  (or run: redis-server)"
                 )
 
+        # 2b. RabbitMQ Connection check
+        try:
+            import aio_pika
+            conn = await aio_pika.connect_robust(settings.RABBITMQ_URL, timeout=1.5)
+            await conn.close()
+        except Exception as rmq_err:
+            self._add_failure(
+                f"Failed to connect to RabbitMQ broker at {settings.RABBITMQ_URL}: {rmq_err}",
+                "RabbitMQ Service",
+                "Ensure RabbitMQ server is running locally or configured correctly in .env"
+            )
+
         # 3. Ollama Connection
         if settings.ENABLE_OLLAMA:
             try:
@@ -288,6 +300,78 @@ class EnvironmentValidator:
                     "Ollama Service",
                     "Verify Ollama is installed and running: ollama serve"
                 )
+
+        # 4. Twitter API Validation (Tweepy Async Client)
+        if getattr(settings, "ENABLE_TWITTER", True):
+            placeholders = ["your_", "here", "api_key", "token"]
+            has_credentials = all([
+                settings.TWITTER_API_KEY,
+                settings.TWITTER_BEARER_TOKEN,
+                not any(p in (settings.TWITTER_API_KEY or "").lower() for p in placeholders),
+                not any(p in (settings.TWITTER_BEARER_TOKEN or "").lower() for p in placeholders)
+            ])
+            if has_credentials:
+                try:
+                    import tweepy
+                    import tweepy.asynchronous
+                    tweepy_client = tweepy.asynchronous.AsyncClient(
+                        bearer_token=settings.TWITTER_BEARER_TOKEN,
+                        consumer_key=settings.TWITTER_API_KEY,
+                        consumer_secret=settings.TWITTER_API_SECRET,
+                        access_token=settings.TWITTER_ACCESS_TOKEN,
+                        access_token_secret=settings.TWITTER_ACCESS_SECRET
+                    )
+                    # Lightweight call to verify credentials
+                    # get_me() verifies bearer token and credentials
+                    response = await tweepy_client.get_me()
+                    if response and response.errors:
+                        self._add_warning(
+                            f"Twitter API v2 credentials active but returned errors: {response.errors}",
+                            "Twitter API"
+                        )
+                    else:
+                        logger.info("Twitter API credentials validated successfully via get_me().")
+                except Exception as twitter_err:
+                    self._add_warning(
+                        f"Twitter API v2 authentication failed: {twitter_err}. Ingestion will fall back to Scraper/Mocks.",
+                        "Twitter API",
+                        "Verify TWITTER_BEARER_TOKEN and other TWITTER_ credentials in your .env file, or set ENABLE_TWITTER=false."
+                    )
+
+        # 5. Sarvam AI API validation
+        if settings.ENABLE_SARVAM:
+            placeholders = ["your_", "here", "api_key", "token"]
+            has_sarvam_key = settings.SARVAM_API_KEY and not any(p in settings.SARVAM_API_KEY.lower() for p in placeholders)
+            if has_sarvam_key:
+                try:
+                    import httpx
+                    async with httpx.AsyncClient(timeout=3.0) as client:
+                        headers = {"api-subscription-key": settings.SARVAM_API_KEY}
+                        payload = {
+                            "inputs": ["test"],
+                            "target_language_code": "en-IN",
+                            "speaker": "meera",
+                            "model": "bullet_v1"
+                        }
+                        resp = await client.post("https://api.sarvam.ai/text-to-speech", headers=headers, json=payload)
+                        if resp.status_code in (401, 403):
+                            self._add_warning(
+                                f"Sarvam AI API authentication failed: {resp.status_code} {resp.reason_phrase}. Check SARVAM_API_KEY.",
+                                "Sarvam AI API",
+                                "Provide a valid SARVAM_API_KEY in .env or disable it."
+                            )
+                        elif resp.status_code not in (200, 400):
+                            self._add_warning(
+                                f"Sarvam AI API check returned status {resp.status_code}: {resp.text}",
+                                "Sarvam AI API"
+                            )
+                        else:
+                            logger.info("Sarvam AI API validated successfully.")
+                except Exception as sarvam_err:
+                    self._add_warning(
+                        f"Sarvam AI API connection check failed: {sarvam_err}. Kokoro local TTS will be used as fallback.",
+                        "Sarvam AI API"
+                    )
 
         return self.critical_failures
 
@@ -359,7 +443,10 @@ class EnvironmentValidator:
                     models_data = resp.json().get("models", [])
                     installed_models = [m["name"].split(":")[0] for m in models_data] + [m["name"] for m in models_data]
                     
-                    required_models = ["qwen2.5", settings.DEFAULT_LOCAL_MODEL]
+                    required_models = ["qwen2.5", "mistral", "gemma", "phi"]
+                    if settings.DEFAULT_LOCAL_MODEL not in required_models:
+                        required_models.append(settings.DEFAULT_LOCAL_MODEL)
+                        
                     for req_model in required_models:
                         # check if matches either direct name or with tags
                         if not any(req_model in m for m in installed_models):
@@ -382,6 +469,42 @@ class EnvironmentValidator:
                         "Kokoro TTS",
                         "Provide a valid path to kokoro model files or leave empty for auto-download."
                     )
+                else:
+                    if path.is_dir():
+                        config_file = path / "config.json"
+                        pth_files = list(path.glob("*.pth"))
+                        
+                        if not config_file.exists():
+                            self._add_failure(
+                                f"Kokoro configuration file 'config.json' is missing in directory: {model_path}",
+                                "Kokoro TTS",
+                                "Download config.json from https://huggingface.co/hexgrad/Kokoro-82M/blob/main/config.json and save it to the model directory."
+                            )
+                        if not pth_files:
+                            self._add_failure(
+                                f"No Kokoro model weights (*.pth) found in directory: {model_path}",
+                                "Kokoro TTS",
+                                "Download kokoro-v0_19.pth from https://huggingface.co/hexgrad/Kokoro-82M/blob/main/kokoro-v0_19.pth and save it to the model directory."
+                            )
+                    else:
+                        if not path.name.endswith(".pth"):
+                            self._add_warning(
+                                f"Kokoro model file does not have a .pth extension: {model_path}",
+                                "Kokoro TTS"
+                            )
+                        config_file = path.parent / "config.json"
+                        if not config_file.exists():
+                            self._add_failure(
+                                f"Kokoro configuration file 'config.json' is missing in the parent directory of: {model_path}",
+                                "Kokoro TTS",
+                                "Download config.json from https://huggingface.co/hexgrad/Kokoro-82M/blob/main/config.json and save it to the parent directory of the model file."
+                            )
+            else:
+                self._add_warning(
+                    "KOKORO_MODEL_PATH is not set in environment settings. The model will automatically download from Hugging Face on first run (requires internet).",
+                    "Kokoro TTS",
+                    "Configure KOKORO_MODEL_PATH in your .env file to enable offline local speech generation."
+                )
 
         # 3. Hardware RAM/VRAM Compatibility
         if psutil:
@@ -420,7 +543,7 @@ class EnvironmentValidator:
         return self.critical_failures
 
     def validate_assets(self) -> List[str]:
-        """Verify directories and default asset paths exist."""
+        """Verify directories and default asset paths exist, checking for crucial assets."""
         required_dirs = [
             "assets/fonts",
             "assets/videos",
@@ -431,7 +554,10 @@ class EnvironmentValidator:
             "assets/audio/raw",
             "assets/audio/processed",
             "assets/audio/temp",
-            "assets/videos/temp"
+            "assets/videos/temp",
+            "assets/videos/gameplay",
+            "assets/overlays",
+            "assets/ass"
         ]
 
         for r_dir in required_dirs:
@@ -447,7 +573,7 @@ class EnvironmentValidator:
                         f"mkdir -p {r_dir}"
                     )
 
-        # Verify at least one font exists
+        # 1. Verify custom fonts exist
         fonts_dir = Path("assets/fonts")
         font_files = list(fonts_dir.glob("*.ttf")) + list(fonts_dir.glob("*.otf"))
         if not font_files:
@@ -455,6 +581,44 @@ class EnvironmentValidator:
                 "No custom fonts found in 'assets/fonts/'. Common system fonts (Arial, Helvetica) will be used as fallbacks.",
                 "Assets Validation",
                 "Download a clean Sans-serif font (e.g. Montserrat or Inter) to assets/fonts/"
+            )
+
+        # 2. Verify ASS templates exist
+        ass_dirs = [Path("assets/ass"), Path("assets/subtitles")]
+        ass_files = []
+        for a_dir in ass_dirs:
+            if a_dir.exists():
+                ass_files.extend(list(a_dir.glob("*.ass")))
+        if not ass_files:
+            self._add_warning(
+                "No ASS subtitle templates found in 'assets/ass/' or 'assets/subtitles/'. Subtitle generation may fail or use defaults.",
+                "Assets Validation",
+                "Place a valid .ass subtitle template in assets/ass/ (e.g. test_captions.ass)"
+            )
+
+        # 3. Verify overlays exist
+        overlays_dir = Path("assets/overlays")
+        overlay_files = list(overlays_dir.glob("*.*"))
+        if not overlay_files:
+            self._add_warning(
+                "No visual overlay assets found in 'assets/overlays/'. Rendered videos will not include templates/watermarks.",
+                "Assets Validation",
+                "Place transparent overlay images or frame assets in assets/overlays/"
+            )
+
+        # 4. Verify gameplay assets exist
+        gameplay_dir = Path("assets/videos/gameplay")
+        video_extensions = ["*.mp4", "*.mkv", "*.mov", "*.avi", "*.webm"]
+        gameplay_files = []
+        for ext in video_extensions:
+            gameplay_files.extend(list(gameplay_dir.glob(ext)))
+            gameplay_files.extend(list(gameplay_dir.glob(f"**/{ext}"))) # recursive
+            
+        if not gameplay_files:
+            self._add_warning(
+                "No background gameplay footage found in 'assets/videos/gameplay/'. Video rendering will fail if background tracks are required.",
+                "Assets Validation",
+                "Download background gameplay loops (e.g., Minecraft, Subway Surfers) and save them to assets/videos/gameplay/"
             )
 
         return self.critical_failures
@@ -538,6 +702,7 @@ class EnvironmentValidator:
             ("Environment Config", "validate_environment"),
             ("Database Services", "validate_services"),
             ("Redis Service", "validate_services"),
+            ("RabbitMQ Service", "validate_services"),
             ("Ollama Service", "validate_services"),
             ("FFmpeg Binaries", "validate_binaries"),
             ("Assets Validation", "validate_assets"),
@@ -561,7 +726,7 @@ class EnvironmentValidator:
         print(f"\n{Style.BRIGHT}SERVICES STATUS:")
         
         # Print green for completely successful areas
-        successful_cats = ["Project Integrity", "Python Libraries", "Environment Config", "Database Services", "Redis Service", "Ollama Service", "FFmpeg Binaries", "Assets Validation", "Worker Services", "Hardware Check", "Ollama Models", "API Keys"]
+        successful_cats = ["Project Integrity", "Python Libraries", "Environment Config", "Database Services", "Redis Service", "RabbitMQ Service", "Ollama Service", "FFmpeg Binaries", "Assets Validation", "Worker Services", "Hardware Check", "Ollama Models", "API Keys"]
         for cat in successful_cats:
             if cat not in failures_by_cat and cat not in warnings_by_cat:
                 # If the service category is enabled (e.g. Ollama service if ENABLE_OLLAMA is true)

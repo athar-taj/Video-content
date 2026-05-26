@@ -34,7 +34,7 @@ class RetryManager:
             },
             "script": {
                 "openai": "mistral",
-                "mistral": "ollama"
+                "mistral": "huggingface"
             }
         }
         

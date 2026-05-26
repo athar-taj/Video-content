@@ -11,7 +11,7 @@ async def main():
     
     tts_service = TTSService()
     
-    async for session in db_manager.get_session():
+    async with db_manager.get_session() as session:
         # 1. Fetch scripts that are ready for voice generation
         # (This usually follows validation, but we'll fetch recently generated ones)
         stmt = select(GeneratedScript).limit(1)

@@ -21,6 +21,9 @@ wheels/
 .installed.cfg
 *.egg
 
+# Ignore .git
+.gitignore
+
 # Virtual Environment
 venv/
 ENV/
@@ -28,7 +31,6 @@ ENV/
 
 # Environment Variables
 .env
-.env.*
 !.env.example
 
 # IDEs

@@ -24,7 +24,7 @@ The project contains a pre-configured `.gitignore` file that excludes the follow
 
 ### 4. External Binaries & Virtual Environments
 *   **Target**: `ffmpeg/`, `.venv/`, `venv/`, `ENV/`, `__pycache__/`, `*.egg-info/`, `build/`, `dist/`
-*   **Why**: `FFmpeg` binaries are platform-dependent (Windows `.exe` vs Linux ELF) and heavy. Python packages are managed through `uv.lock` or `pyproject.toml` and should be installed within ignored virtual environments.
+*   **Why**: `FFmpeg` binaries are platform-dependent (Windows `.exe` vs Linux ELF) and heavy. Python packages are managed through `requirements.txt` and should be installed within ignored virtual environments. Note that `torch` must be installed separately from the PyTorch CPU index **before** running `pip install -r requirements.txt` — see the [Setup & Execution Guide](setup_and_execution_guide.md) for the exact command.
 
 ---
 

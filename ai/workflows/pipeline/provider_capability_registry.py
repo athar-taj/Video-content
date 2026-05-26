@@ -10,7 +10,7 @@ class ProviderCapabilityRegistry:
     """Detects available environment variables, configuration parameters, and local network status at runtime."""
     
     def __init__(self):
-        self.ollama_base_url = settings.OLLAMA_BASE_URL
+        pass
 
     async def is_provider_available(self, provider_name: str) -> bool:
         """Checks if a provider is enabled, configured, and reachable."""
@@ -20,18 +20,7 @@ class ProviderCapabilityRegistry:
         if name == "mock":
             return True
             
-        # 2. Ollama provider
-        if name == "ollama":
-            if not getattr(settings, "ENABLE_OLLAMA", True):
-                return False
-            # Perform runtime connection check
-            try:
-                async with httpx.AsyncClient(timeout=1.0) as client:
-                    resp = await client.get(f"{self.ollama_base_url}/api/tags")
-                    return resp.status_code == 200
-            except Exception as e:
-                logger.warning(f"Ollama provider check failed (connection issue): {e}")
-                return False
+        # 2. Ollama provider has been removed.
 
         # 3. OpenAI provider
         if name == "openai":
@@ -51,11 +40,15 @@ class ProviderCapabilityRegistry:
             key_exists = bool(settings.MISTRAL_API_KEY)
             return enabled and key_exists
 
-        # 6. Hugging Face provider
-        if name == "huggingface" or name == "hf":
-            enabled = getattr(settings, "ENABLE_HF", True)
-            token_exists = bool(settings.HF_API_TOKEN)
-            return enabled and token_exists
+        # 6. Hugging Face provider (local execution checks)
+        if name in ("huggingface", "hf"):
+            enabled = getattr(settings, "HF_ENABLED", True)
+            try:
+                import transformers
+                import torch
+                return enabled
+            except ImportError:
+                return False
 
         # 7. Kokoro TTS (Local)
         if name == "kokoro":
@@ -90,7 +83,7 @@ class ProviderCapabilityRegistry:
         healthy = []
         
         if category == "llm":
-            candidates = ["mock", "ollama", "openai", "claude", "mistral", "huggingface"]
+            candidates = ["mock", "openai", "claude", "mistral", "huggingface"]
         elif category == "tts":
             candidates = ["kokoro", "sarvam", "murf", "elevenlabs"]
         else:
@@ -107,10 +100,8 @@ class ProviderCapabilityRegistry:
                     standardized = "Claude"
                 elif candidate == "mistral":
                     standardized = "Mistral"
-                elif candidate == "huggingface" or candidate == "hf":
+                elif candidate in ("huggingface", "hf"):
                     standardized = "HuggingFace"
-                elif candidate == "ollama":
-                    standardized = "Ollama"
                 elif candidate == "kokoro":
                     standardized = "Kokoro"
                 elif candidate == "sarvam":

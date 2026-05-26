@@ -79,7 +79,7 @@ async def run_discovery(limit: int = 15, trigger_pipeline: bool = False):
     
     # 5. Persist to Database
     logger.info("Persisting results to database...")
-    async for session in db_manager.get_session():
+    async with db_manager.get_session() as session:
         # Store Trends
         for tweet in scored_tweets:
             # Check for existing tweet

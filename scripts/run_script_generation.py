@@ -15,7 +15,7 @@ async def main():
     
     generator = ScriptGenerator()
     
-    async for session in db_manager.get_session():
+    async with db_manager.get_session() as session:
         # 1. Fetch top ranked topics that don't have scripts yet
         stmt = select(RedditTopic).where(
             RedditTopic.processing_status == "fetched" # or "ranked"

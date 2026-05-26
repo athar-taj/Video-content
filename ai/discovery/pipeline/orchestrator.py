@@ -37,7 +37,7 @@ class ContentDiscoveryOrchestrator:
             # Connect to necessary infrastructure
             await redis_manager.connect()
             
-            async for session in db_manager.get_session():
+            async with db_manager.get_session() as session:
                 repo = TopicRepository(session)
                 
                 for sub in subs:

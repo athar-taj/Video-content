@@ -24,7 +24,7 @@ class RedditDiscoveryPipeline:
         subs = subreddits or settings.TARGET_SUBREDDITS
         log.info(f"🚀 Starting Reddit Discovery Pipeline for {len(subs)} subreddits")
         
-        async for session in db_manager.get_session():
+        async with db_manager.get_session() as session:
             repo = DiscoveryRepository(session)
             
             for sub in subs:

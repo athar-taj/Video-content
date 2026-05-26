@@ -27,10 +27,10 @@ async def script_validation_node(state: Dict[str, Any]) -> Dict[str, Any]:
         
         # Persist validation result to DB (like Phase 2 does)
         try:
-            async for session in db_manager.get_session():
+            async with db_manager.get_session() as session:
                 val_obj = ScriptValidation(
                     script_id=script_id,
-                    is_valid=result.passed,
+                    passed=result.passed,
                     quality_score=result.quality_score,
                     profanity_score=result.profanity_score,
                     duplicate_score=result.duplicate_score,

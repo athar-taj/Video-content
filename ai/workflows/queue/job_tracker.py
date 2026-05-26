@@ -1,10 +1,7 @@
 import asyncio
 import logging
 from typing import Dict, Any, Optional
-from rq.job import Job
-from rq.exceptions import NoSuchJobError
 
-from ai.workflows.queue.queue_manager import queue_manager
 from ai.workflows.queue.models import JobStatus
 from db.repositories.manager import db_manager
 from db.models.queue import PipelineJobModel
@@ -12,65 +9,24 @@ from db.models.queue import PipelineJobModel
 logger = logging.getLogger(__name__)
 
 class JobTracker:
-    """Tracks and polls job execution states."""
+    """Tracks and polls job execution states via the database staging layer."""
 
     async def get_job_status(self, job_id: str) -> JobStatus:
-        """Determines the current status of a job from Redis or database fallback."""
-        # 1. Try fetching from Redis (active state source)
-        if queue_manager.redis_available:
-            try:
-                redis_conn = queue_manager.get_redis_connection()
-                rq_job = Job.fetch(job_id, connection=redis_conn)
-                
-                # Map RQ status to our JobStatus enum
-                status_map = {
-                    "queued": JobStatus.QUEUED,
-                    "started": JobStatus.ACTIVE,
-                    "finished": JobStatus.COMPLETED,
-                    "failed": JobStatus.FAILED,
-                    "deferred": JobStatus.PENDING,
-                }
-                rq_status = rq_job.get_status()
-                if rq_status in status_map:
-                    return status_map[rq_status]
-            except NoSuchJobError:
-                # Job might have expired or not yet reached Redis (extremely rare race condition)
-                pass
-            except Exception as e:
-                logger.warning(f"Error checking Redis for job {job_id}: {e}")
-
-        # 2. Fall back to PostgreSQL database
+        """Determines the current status of a job from the database."""
         async with db_manager.session_factory() as session:
             db_job = await session.get(PipelineJobModel, job_id)
             if db_job:
                 return JobStatus(db_job.status)
-        
         return JobStatus.PENDING
 
     async def get_job_result(self, job_id: str) -> Optional[Dict[str, Any]]:
-        """Retrieves the result payload of a completed job."""
-        # Try fetching from Redis first
-        if queue_manager.redis_available:
-            try:
-                redis_conn = queue_manager.get_redis_connection()
-                rq_job = Job.fetch(job_id, connection=redis_conn)
-                if rq_job.is_finished:
-                    # RQ job results are returned from the execution function
-                    # If result is a dict, we return it
-                    res = rq_job.result
-                    if isinstance(res, dict):
-                        return res
-            except Exception:
-                pass
-
-        # Fall back to database payload/snapshot
+        """Retrieves the result payload of a completed job from the database."""
         async with db_manager.session_factory() as session:
             db_job = await session.get(PipelineJobModel, job_id)
             if db_job and db_job.status == JobStatus.COMPLETED.value:
-                # If worker saved result payload back into PipelineJobModel
-                # Let's say worker saves the output result in the payload field or as a JSON metadata
-                return db_job.payload.get("result") if db_job.payload else None
-
+                # Retrieve the result saved in the payload by the worker
+                if db_job.payload and isinstance(db_job.payload, dict):
+                    return db_job.payload.get("result")
         return None
 
     async def await_job_completion(
@@ -92,11 +48,10 @@ class JobTracker:
                 if result is not None:
                     return result
                 else:
-                    # Job completed but returned no result
                     return {}
             
             if status in (JobStatus.FAILED, JobStatus.DEAD):
-                # Retrieve failure reason from DB using a direct select query to avoid lazy load issues
+                # Retrieve failure reason from DB
                 async with db_manager.session_factory() as session:
                     from db.models.queue import JobFailureModel
                     from sqlalchemy import select

@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
 from shared.config.settings import settings
@@ -18,6 +19,7 @@ class DatabaseManager:
             expire_on_commit=False
         )
 
+    @asynccontextmanager
     async def get_session(self) -> AsyncSession:
         async with self.session_factory() as session:
             try:

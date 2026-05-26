@@ -62,7 +62,7 @@ Return ONLY the rewritten script. Do not include editing notes, markdown wrapper
             from db.repositories.manager import db_manager
             from db.models.script import GeneratedScript
             from sqlalchemy import update
-            async for session in db_manager.get_session():
+            async with db_manager.get_session() as session:
                 stmt = update(GeneratedScript).where(GeneratedScript.id == script_id).values(
                     hook=hook,
                     full_script=rewritten_text,

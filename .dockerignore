@@ -1,0 +1,40 @@
+# Version control
+.git
+.gitignore
+
+# Environments and IDEs
+.venv
+.idea
+.vscode
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+# Local environment variables
+.env
+.env.development
+.env.production
+.env.staging
+.env.local
+
+# Logs and outputs
+logs/
+*.log
+run_output.log
+worker_stderr.log
+worker_stdout.log
+
+# Heavy media assets and cached artifacts
+assets/audio
+assets/videos
+assets/timelines
+assets/renders
+assets/output
+assets/models
+assets/fonts
+
+# Python packaging build artifacts
+build/
+dist/
+*.egg-info

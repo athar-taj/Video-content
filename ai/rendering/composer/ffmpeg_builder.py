@@ -28,7 +28,7 @@ class FFmpegBuilder:
         
         # Inputs
         # [0:v] Background Video
-        cmd.extend(["-i", job.background_video_path])
+        cmd.extend(["-stream_loop", "-1", "-i", job.background_video_path])
         # [1:a] Narration Audio
         cmd.extend(["-i", job.narration_path])
         

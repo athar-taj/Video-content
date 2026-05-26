@@ -39,7 +39,7 @@ async def main():
         
     log.info(f"Generated mock temp audio at {temp_path}")
     
-    async for session in db_manager.get_session():
+    async with db_manager.get_session() as session:
         metadata_service = AudioMetadataService(session)
         cleanup_service = CleanupService(storage_service, file_manager)
         
@@ -94,7 +94,6 @@ async def main():
         await cleanup_service.cleanup_temp_files(older_than_hours=0)
         
         log.info("Audio Storage System Test Completed Successfully.")
-        break # Only need one session loop
 
 if __name__ == "__main__":
     asyncio.run(main())

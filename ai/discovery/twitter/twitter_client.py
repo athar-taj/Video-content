@@ -28,6 +28,7 @@ class TwitterClient:
         if settings.ENABLE_TWITTER and has_credentials:
             try:
                 import tweepy
+                import tweepy.asynchronous
                 # Initialize Tweepy Async Client
                 self.client = tweepy.asynchronous.AsyncClient(
                     bearer_token=settings.TWITTER_BEARER_TOKEN,

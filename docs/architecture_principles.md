@@ -31,6 +31,7 @@ Every subsystem must support:
 
 ### TTS Architecture
 - **Local/Free**: Kokoro, Piper TTS (future), Coqui TTS (future).
+  - *Offline Execution*: Fully supports air-gapped environments by configuring `KOKORO_MODEL_PATH` to point to a directory containing the `.pth` model weights and its matching `config.json`.
 - **Premium**: Murf AI, Sarvam AI, ElevenLabs, OpenAI TTS, Azure TTS.
 - **Local Usage**: Testing, drafts, experimentation, bulk generation.
 - **Premium Usage**: High-performing content, final premium exports, emotionally optimized narration.

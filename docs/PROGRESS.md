@@ -126,6 +126,30 @@ Builds a scalable asynchronous Job Queue & Distributed Execution System (RQ) to 
   - `python scripts/retry_failed_jobs.py` - Inspects failed jobs and replays dead letter records.
   - `python scripts/purge_dead_jobs.py` - Cleans up failure histories and dead logs.
 
+### Phase 10 — Local-First AI Migration & Master Environment Validation (Completed)
+Builds a cost-efficient, offline-first operating system that validates the environment and fallback routes prior to running the pipelines.
+
+**Key Features:**
+- **Local-First & Free-First Routing**: Configured provider router prioritizing Ollama and HuggingFace for LLMs, and Kokoro and Sarvam for TTS to avoid premium API key billing blocks.
+- **Master Environment Validator**: Implemented `EnvironmentValidator` that validates imports, config files, required Ollama models, external binaries (FFmpeg/FFprobe), custom fonts, ASS subtitles templates, visual overlays, gameplay videos, and database/Redis/Twitter/Sarvam connectivity checks with warning status downgrades for optional keys.
+- **Dynamic Connection & URL Assembly**: Enabled Pydantic `model_validator` in `settings.py` to automatically assemble `DATABASE_URL` and `REDIS_URL` from individual postgres and redis host/port/db parameters.
+- **One-Command Bootstrap script**: Created `scripts/bootstrap_environment.py` to build the required directory tree, deploy configurations, run DB migrations, and verify system dependencies.
+- **Scripts Available**:
+  - `python scripts/bootstrap_environment.py` - Bootstraps the local project environment, directories, configuration, and migrations.
+  - `python scripts/test_local_first_routing.py` - Runs the unit test suite for local routing and model capability validation.
+
+### Phase 11 — Real-Time X/Twitter Discovery Engine (Completed)
+Migrates the media engine trend discovery from Reddit-first to Twitter/X-first real-time trend discovery, enabling velocity tracking and lexical deduplication.
+
+**Key Features:**
+- **Twitter-First Discovery Ingestion**: Created PostgreSQL database schemas for `TwitterTrend`, `TrendCluster`, and `InfluencerMetrics`.
+- **Robust Multi-Provider Twitter Ingestor**: Created Tweepy API client with automatic web-scraping fallbacks (Twikit, snscrape, Playwright) and Mock simulations for full offline and sandbox execution.
+- **Lexical Topic Clustering & Virality Analysis**: Groups trending topics dynamically using RapidFuzz string similarity, scoring virality based on retweet velocity, engagement ratios, and creator authority metrics.
+- **Dynamic Decision Edge Integration**: Refactored the LangGraph `topic_fetch_node` and router to ingest Twitter trends and choose workflows dynamically matching the trend's virality.
+- **Scripts Available**:
+  - `python scripts/run_twitter_discovery.py` - CLI to ingest and cluster real-time Twitter/X trends.
+  - `python scripts/test_twitter_pipeline.py` - Integration test for Twitter trend fetching and state routing.
+
 ---
 
 *This document is actively maintained as new features are integrated into the architecture.*

@@ -14,7 +14,7 @@ async def topic_fetch_node(state: Dict[str, Any]) -> Dict[str, Any]:
     
     topic_id = state.get("topic_id")
     
-    async for session in db_manager.get_session():
+    async with db_manager.get_session() as session:
         topic = None
         source_type = "twitter"
         

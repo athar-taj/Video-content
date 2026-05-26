@@ -36,7 +36,7 @@ async def main():
     
     # 2. Verify Database Records
     logger.info("Step 2: Verifying database records...")
-    async for session in db_manager.get_session():
+    async with db_manager.get_session() as session:
         # Verify trends exist
         stmt = select(TwitterTrend)
         res = await session.execute(stmt)
@@ -65,7 +65,7 @@ async def main():
     
     # We will fetch a trend from the database to use its tweet_id
     tweet_id_to_test = "mock_tweet_id"
-    async for session in db_manager.get_session():
+    async with db_manager.get_session() as session:
         stmt = select(TwitterTrend).order_by(TwitterTrend.viral_score.desc()).limit(1)
         res = await session.execute(stmt)
         top_trend = res.scalar_one_or_none()
